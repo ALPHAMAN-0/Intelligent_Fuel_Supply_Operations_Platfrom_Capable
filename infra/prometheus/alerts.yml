@@ -1,0 +1,75 @@
+# Operational alert rules (architecture.md §6). Visible at http://localhost:9090/alerts and on the Grafana dashboard.
+groups:
+  - name: fuelops-availability
+    rules:
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 30s
+        labels: { severity: critical }
+        annotations:
+          summary: Backend API is not responding to scrapes
+          action: docker compose ps backend; docker compose logs backend
+
+      - alert: IntelligenceUnavailable
+        expr: up{job="intelligence"} == 0 or fuelops_intelligence_up{job="backend"} == 0
+        for: 30s
+        labels: { severity: warning }
+        annotations:
+          summary: Intelligence service unavailable - backend is using the heuristic fallback policy
+
+      - alert: SimulatorCircuitOpen
+        expr: max(fuelops_sim_breaker_state) == 2
+        for: 15s
+        labels: { severity: critical }
+        annotations:
+          summary: Simulator circuit breaker is open - serving cached state in degraded mode
+
+      - alert: SimulatorStaleData
+        expr: fuelops_sim_stale == 1
+        for: 15s
+        labels: { severity: warning }
+        annotations:
+          summary: Simulator reports stale data (X-Simulator-Stale) - automatic approval is blocked
+
+      - alert: DatabaseDown
+        expr: fuelops_db_up == 0
+        for: 30s
+        labels: { severity: warning }
+        annotations:
+          summary: SQLite store unavailable - backend keeps running from memory
+
+  - name: fuelops-performance
+    rules:
+      - alert: ApiLatencyP95High
+        expr: >-
+          histogram_quantile(0.95, sum by (le) (rate(fuelops_http_request_duration_seconds_bucket{job="backend"}[1m])))
+          > 0.5
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: Backend p95 latency above 500 ms
+
+      - alert: ApiErrorRateHigh
+        expr: >-
+          sum(rate(fuelops_http_requests_total{job="backend", status=~"5.."}[1m]))
+          / clamp_min(sum(rate(fuelops_http_requests_total{job="backend"}[1m])), 1e-9) > 0.05
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: More than 5% of backend requests fail with 5xx
+
+  - name: fuelops-business
+    rules:
+      - alert: ServiceLevelDegraded
+        expr: fuelops_service_level < 0.95
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: Simulated network service level below 95%
+
+      - alert: StockoutRiskHigh
+        expr: fuelops_stations_at_risk > 0
+        for: 2m
+        labels: { severity: info }
+        annotations:
+          summary: "{{ $value }} station/fuel series have P(stockout within 12 h) >= 50%"

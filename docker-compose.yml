@@ -1,0 +1,122 @@
+# FuelOps full stack (simulated data only). Start with:  cp .env.example .env && docker compose up -d --build
+#
+#   simulator     organizer's published image, unmodified (CLAUDE.md hard rule 1)        :8000  /docs  /admin
+#   backend       operator API + static operator console + decision loop                 :8080  /  /docs  /metrics
+#   intelligence  forecaster + LP planner + what-if (optional: backend falls back)         :8090  /docs  /metrics
+#   prometheus    scrapes backend + intelligence, evaluates infra/prometheus/alerts.yml    :9090
+#   grafana       provisioned "FuelOps" dashboard (anonymous viewer)                        :3001
+#   locust        load test, only with:  docker compose --profile loadtest up locust       :8089
+#
+# Storage is a SQLite file on the backend-data volume (ADR-012), so there is no database container.
+
+name: fuelops
+
+x-fuelops-image: &fuelops-image
+  # One image, two services (ADR-009). Only "backend" declares the build so both don't race to tag it.
+  image: ${IMAGE_REPO:-fuelops-server}:${IMAGE_TAG:-local}
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+x-python-healthcheck: &python-healthcheck
+  interval: 10s
+  timeout: 3s
+  retries: 5
+  start_period: 20s
+
+services:
+  simulator:
+    image: asifmahmoud414/bup-fuel-supply-simulator:1.0.0
+    restart: unless-stopped
+    environment:
+      SIMULATION_SPEED: ${SIMULATION_SPEED:-1}
+      TICK_MINUTES: ${TICK_MINUTES:-15}
+      SIMULATOR_START_MODE: ${SIMULATOR_START_MODE:-running}
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/v1/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  intelligence:
+    <<: *fuelops-image
+    command: ["uvicorn", "fuelops.intelligence.main:app", "--host", "0.0.0.0", "--port", "8090"]
+    ports: ["8090:8090"]
+    healthcheck:
+      <<: *python-healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=2)"]
+
+  backend:
+    <<: *fuelops-image
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      SIM_BASE_URL: http://simulator:8000
+      INTELLIGENCE_URL: http://intelligence:8090
+    ports: ["8080:8080"]
+    volumes:
+      - backend-data:/srv/fuelops/server/data
+    depends_on:
+      simulator: { condition: service_healthy }
+      # Not "healthy": the decision loop must start (heuristic fallback) even when intelligence is down.
+      intelligence: { condition: service_started }
+    healthcheck:
+      <<: *python-healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health/live', timeout=2)"]
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2d
+      - --web.enable-lifecycle
+    ports: ["9090:9090"]
+    volumes:
+      - ./infra/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    depends_on: [backend, intelligence]
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-in-dotenv}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/fuelops.json
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports: ["3001:3000"]
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on: [prometheus]
+
+  locust:
+    image: locustio/locust:2.32.4
+    profiles: [loadtest]
+    command: >-
+      -f /mnt/loadtest/locustfile.py --host http://backend:8080 --headless
+      -u ${LOAD_USERS:-50} -r ${LOAD_SPAWN_RATE:-5} -t ${LOAD_DURATION:-3m}
+      --csv /mnt/loadtest/results/run --html /mnt/loadtest/results/report.html --only-summary
+    environment:
+      OPERATOR_TOKEN: ${OPERATOR_TOKEN:-}
+      LOAD_WRITE_WEIGHT: ${LOAD_WRITE_WEIGHT:-1}
+    ports: ["8089:8089"]
+    volumes:
+      - ./loadtest:/mnt/loadtest
+    depends_on:
+      backend: { condition: service_healthy }
+
+volumes:
+  backend-data:
+  prometheus-data:
+  grafana-data:
