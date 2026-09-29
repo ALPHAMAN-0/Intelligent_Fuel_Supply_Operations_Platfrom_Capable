@@ -10,6 +10,9 @@ with human review, and keeps working when components fail.
 
 - [`plan.md`](plan.md) — problem understanding, phases, demo script, traceability. Read first.
 - [`architecture.md`](architecture.md) — components, data flow, intelligence design, resilience, observability.
+- [`plan.json`](plan.json) — progress tracker: fixed main goal, requirement ids, simulator contract, iterations,
+  task status, open questions, decisions. Follow its `iteration_process`; update task `status` + `evidence` as work
+  lands; never edit `main_goal`.
 - [`ProblemSet/`](ProblemSet/) — original briefs (participant brief scan + simulator integration guide). The
   integration guide is the authoritative API contract.
 

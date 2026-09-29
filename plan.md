@@ -2,6 +2,7 @@
 
 > BUP CSE Fest 2026 Hackathon Finals (in association with Poridhi.io).
 > Design details: [`architecture.md`](architecture.md) · Working rules: [`CLAUDE.md`](CLAUDE.md) · Briefs: [`ProblemSet/`](ProblemSet/)
+> Progress tracker: [`plan.json`](plan.json) — requirement ids, task ids and status for every phase below.
 >
 > **Before coding:** run `/grill-me` on this plan and update it with the answers.
 
@@ -144,6 +145,8 @@ required deliverable exists in at least basic form.
 - Detectors: demand anomaly (z/CUSUM, regional correlation), supply delay/shortfall diff, network status changes,
   scheduled events, dispatch bottleneck.
 - Alerts + incidents persisted and exposed via API.
+- (S) Supply ETA and delay prediction: expected arrival tick per supply arrival/shipment, delay likelihood from
+  event history (brief §7 "estimated supply arrival", "transport delay prediction").
 - **Done when:** forecast MAPE reported per horizon; a demand_spike injection raises a regional alert within a few
   ticks; supply delay raises a supply-risk alert.
 
@@ -159,9 +162,9 @@ required deliverable exists in at least basic form.
 
 ### Phase 4 — Operator console (M) · App
 
-- Network overview, station/depot detail with forecast charts, alerts & incidents, recommendation inspector
-  (approve / modify with what-if / reject), supply & shipments (cancel PENDING), decision history, system health,
-  chaos panel. Live updates via `/api/stream`. Stale/degraded/fallback banners. `SIMULATED DATA` badge.
+- Network overview (incl. regional demand panel), station/depot detail with forecast charts, alerts & incidents,
+  recommendation inspector (approve / modify with what-if / reject), supply & shipments (cancel PENDING), decision
+  history, system health, chaos panel. Live updates via `/api/stream`. Stale/degraded/fallback banners. `SIMULATED DATA` badge.
 - **Done when:** an operator can run the 14-step demo story entirely from the UI (plus Grafana).
 
 ### Phase 5 — Generative AI assist (S) · AI
@@ -200,7 +203,8 @@ required deliverable exists in at least basic form.
 ### Phase 9 — Delivery (M) · all
 
 - CD: build + push images to GHCR tagged by SHA; compose smoke test job; rollback procedure documented.
-- README (setup, config, run, demo), architecture diagram export, docs index.
+- README (setup, config, run, demo, data sources and assumptions — brief §16/§24), architecture diagram export,
+  docs index.
 - Benchmark report (§6). Demo rehearsal ×2 with the script in §5, including a surprise-event drill.
 - **C:** RL policy vs heuristic/LP, K8s/Helm manifests, Loki, multi-agent decision system, drift detection.
 
@@ -313,6 +317,6 @@ required justification if RL is attempted (RL must beat the heuristic here to be
 
 ## 9. Next steps
 
-1. `/grill-me` on this plan → settle open decisions, update this file.
+1. `/grill-me` on this plan → settle open decisions, update this file and `plan.json` (`decisions_log`).
 2. Phase 0 scaffold + compose + CI.
 3. Phase 1 spike to answer §1.4 before building the optimizer constraints.
