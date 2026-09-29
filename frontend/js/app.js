@@ -43,7 +43,7 @@ export function bannersFor(state, healthBody) {
 export function createConsole({ root, api = defaultApi, canAct = defaultCanAct, EventSourceImpl = globalThis.EventSource,
   win = globalThis.window, pollMs = 5000 } = {}) {
   const ui = { route: parseRoute(win?.location?.hash), expanded: new Set(), alertStatus: 'active', drawerStation: null,
-    stream: null, poll: null, lastState: null, lastHealth: null };
+    stream: null, poll: null, lastState: null, lastHealth: null, briefing: null };
 
   const header = h('header', { class: 'app-header' });
   const banners = h('div', { class: 'banners', role: 'status', 'aria-live': 'polite' });
@@ -59,18 +59,31 @@ export function createConsole({ root, api = defaultApi, canAct = defaultCanAct, 
     setTimeout(() => t.remove(), tone === 'critical' ? 8000 : 4000);
   }
 
+  const failure = (err) => toast(`${err.message ?? 'Action failed'}${err.status ? ` (HTTP ${err.status})` : ''}`, 'critical');
+
   async function act(fn, success) {
     try {
       await fn();
       if (success) toast(success, 'ok');
     } catch (err) {
-      toast(`${err.message ?? 'Action failed'}${err.status ? ` (HTTP ${err.status})` : ''}`, 'critical');
+      failure(err);
     }
     await refresh();
   }
 
+  // Kept in console state (not the view) so live refreshes do not wipe it; a failed request keeps the previous one.
+  async function requestBriefing() {
+    try {
+      ui.briefing = await api.briefing();
+    } catch (err) {
+      failure(err);
+    }
+    await renderView();
+  }
+
   const ctx = {
-    api, canAct, act, toast,
+    api, canAct, act, toast, requestBriefing,
+    briefing: () => ui.briefing,
     openStation: (id) => openStation(id),
     evaluate: async (lines) => {
       try {

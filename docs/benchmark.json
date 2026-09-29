@@ -1,0 +1,53 @@
+{
+ "ticks": 288,
+ "results": {
+  "baseline": [
+   {
+    "policy": "no-action",
+    "service_level": 0.3074,
+    "unmet_demand_liters": 193586,
+    "served_demand_liters": 85900,
+    "allocation_failures": 0,
+    "allocations": 0,
+    "liters_shipped": 0,
+    "stockout_hours": 579.5,
+    "wall_seconds": 68.7
+   },
+   {
+    "policy": "heuristic",
+    "service_level": 0.9602,
+    "unmet_demand_liters": 11117,
+    "served_demand_liters": 268369,
+    "allocation_failures": 0,
+    "allocations": 170,
+    "liters_shipped": 194200,
+    "stockout_hours": 93.0,
+    "wall_seconds": 85.2
+   },
+   {
+    "policy": "planner",
+    "service_level": 1.0,
+    "unmet_demand_liters": 0,
+    "served_demand_liters": 279486,
+    "allocation_failures": 0,
+    "allocations": 171,
+    "liters_shipped": 221100,
+    "stockout_hours": 0.0,
+    "wall_seconds": 105.4
+   }
+  ],
+  "demand-spike": [
+   {
+    "policy": "no-action",
+    "service_level": 0.2997,
+    "unmet_demand_liters": 203498,
+    "served_demand_liters": 87100,
+    "allocation_failures": 0,
+    "allocations": 1,
+    "liters_shipped": 1200,
+    "stockout_hours": 602.5,
+    "wall_seconds": 63.8
+   }
+  ]
+ }
+}

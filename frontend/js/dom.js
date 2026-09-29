@@ -9,7 +9,9 @@ function applyAttrs(el, attrs) {
     if (value === undefined || value === null || value === false) continue;
     if (key === 'class') el.setAttribute('class', Array.isArray(value) ? value.filter(Boolean).join(' ') : value);
     else if (key === 'dataset') Object.assign(el.dataset, value);
-    else if (key.startsWith('on') && typeof value === 'function') el.addEventListener(key.slice(2), value);
+    else if (key.startsWith('on')) {
+      if (typeof value === 'function') el.addEventListener(key.slice(2), value);  // never an inline-handler string
+    }
     else if (key === 'width%' ) el.style.width = `${Math.max(0, Math.min(100, value))}%`;
     else el.setAttribute(key, value === true ? '' : String(value));
   }

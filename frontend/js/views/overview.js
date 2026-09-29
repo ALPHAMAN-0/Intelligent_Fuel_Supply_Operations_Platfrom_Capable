@@ -28,6 +28,22 @@ export function worstRiskByStation(risks) {
   return worst;
 }
 
+/** Plain-language network summary from POST /api/briefing (Claude, template fallback); token-gated. */
+export function briefingCard(ctx) {
+  const can = ctx.canAct?.() ?? false;
+  const latest = ctx.briefing?.();
+  return h('section', { class: 'card briefing' },
+    h('div', { class: 'row' }, h('h2', {}, 'Network briefing'),
+      latest ? pill(latest.source === 'llm' ? 'Claude' : 'template', latest.source === 'llm' ? 'info' : 'muted') : null,
+      latest ? h('span', { class: 'muted' }, `tick ${latest.tick}`) : null,
+      h('button', { type: 'button', class: 'btn btn-sm primary', disabled: !can,
+        title: can ? 'Summarise the network state and top risks' : 'Sign in to act',
+        onclick: () => ctx.requestBriefing?.() }, 'Brief me')),
+    latest ? h('pre', { class: 'explanation-text' }, latest.text)
+      : h('p', { class: 'muted' }, 'A plain-language summary of the network state and top risks '
+        + '(Claude when configured, deterministic template otherwise).'));
+}
+
 export function view({ state, risks, regional, supply, incidents }, ctx = {}) {
   const world = state.world;
   const m = world.metrics ?? {};
@@ -92,6 +108,7 @@ export function view({ state, risks, regional, supply, incidents }, ctx = {}) {
 
   return h('div', { class: 'view overview' },
     kpis,
+    briefingCard(ctx),
     h('div', { class: 'grid-2' },
       h('section', { class: 'card' }, h('h2', {}, 'Network'),
         networkDiagram({ depots: world.depots, stations: world.stations, routes: world.routes,
