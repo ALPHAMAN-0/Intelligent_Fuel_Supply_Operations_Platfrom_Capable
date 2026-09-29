@@ -588,8 +588,8 @@
         "text": "A runnable end-to-end platform",
         "iterations": ["I1", "I2", "I3"],
         "artifact": "docker compose up → full platform",
-        "status": "todo",
-        "evidence": []
+        "status": "done",
+        "evidence": ["docker compose up -d --build; all components healthy against simulator 1.0.0"]
       },
       {
         "id": "D-02",
@@ -597,8 +597,8 @@
         "text": "Application code, setup instructions, dependencies, deployment instructions",
         "iterations": ["PLAN", "I1", "I5"],
         "artifact": "This repo, README.md, .env.example",
-        "status": "in_progress",
-        "evidence": ["plan.md", "architecture.md", "CLAUDE.md"]
+        "status": "done",
+        "evidence": ["plan.md", "architecture.md", "CLAUDE.md", "README.md", ".env.example"]
       },
       {
         "id": "D-03",
@@ -606,8 +606,8 @@
         "text": "The system interacts with the official BUP Fuel Supply Simulator",
         "iterations": ["I1", "I3"],
         "artifact": "server/fuelops/backend/integration, state sync, actuator",
-        "status": "todo",
-        "evidence": []
+        "status": "done",
+        "evidence": ["tests/test_simulator_contract.py 27/27 vs the published image"]
       },
       {
         "id": "D-04",
@@ -615,8 +615,8 @@
         "text": "At least one meaningful AI, ML, optimization, detection or decision-support capability",
         "iterations": ["I2", "I3"],
         "artifact": "server/fuelops/intelligence (forecaster, risk, planner) + backend detectors",
-        "status": "todo",
-        "evidence": []
+        "status": "done",
+        "evidence": ["docs/benchmark.md"]
       },
       {
         "id": "D-05",
@@ -624,8 +624,8 @@
         "text": "A usable interface showing meaningful operational information",
         "iterations": ["I1", "I2", "I3"],
         "artifact": "frontend/ five views",
-        "status": "todo",
-        "evidence": []
+        "status": "done",
+        "evidence": ["operator console at :8080 + login page", "frontend coverage 97% lines"]
       },
       {
         "id": "D-06",
@@ -633,8 +633,8 @@
         "text": "simulator → data/backend → intelligence → decision → application → monitoring",
         "iterations": ["PLAN", "I5"],
         "artifact": "architecture.md §2 (mermaid) + exported image in docs/",
-        "status": "in_progress",
-        "evidence": ["architecture.md"]
+        "status": "done",
+        "evidence": ["architecture.md", "architecture.md, README.md"]
       },
       {
         "id": "D-07",
@@ -642,8 +642,8 @@
         "text": "A reproducible deployment method",
         "iterations": ["I1", "I5"],
         "artifact": "docker-compose.yml, CI, versioned images",
-        "status": "todo",
-        "evidence": []
+        "status": "done",
+        "evidence": ["docker-compose.yml + IMAGE_REPO/IMAGE_TAG rollback"]
       },
       {
         "id": "D-08",
@@ -651,8 +651,8 @@
         "text": "Logs, metrics, dashboards, alerts or equivalent outputs",
         "iterations": ["I3"],
         "artifact": "infra/grafana, infra/prometheus, /api/health",
-        "status": "todo",
-        "evidence": []
+        "status": "done",
+        "evidence": ["Grafana dashboard, Prometheus alert rules, JSON logs, /api/health"]
       },
       {
         "id": "D-09",
@@ -660,8 +660,8 @@
         "text": "Evidence of how the application responds to at least one meaningful failure condition",
         "iterations": ["I3", "I4"],
         "artifact": "docs/resilience-evidence.md",
-        "status": "todo",
-        "evidence": []
+        "status": "done",
+        "evidence": ["docs/resilience-evidence.md", "docs/resilience-drills.md"]
       },
       {
         "id": "D-10",
@@ -669,8 +669,8 @@
         "text": "Workload definition and measured results",
         "iterations": ["I4"],
         "artifact": "loadtest/, docs/load-test-report.md",
-        "status": "todo",
-        "evidence": []
+        "status": "done",
+        "evidence": ["docs/load-test-report.md", "loadtest/results/"]
       },
       {
         "id": "D-11",
@@ -688,53 +688,46 @@
         "name": "CI/CD",
         "plan": "GitHub Actions: lint → test → integration → build → push → smoke",
         "covered_by": ["I1-T7", "I5-T4"],
-        "status": "todo"
-      },
+        "status": "in_progress", "evidence": [".github/workflows/ci.yml"], "notes": "Not yet executed on GitHub Actions."},
       {
         "id": "RD-02",
         "name": "Automated tests",
         "plan": "pytest (unit + integration against real simulator), vitest",
         "covered_by": ["I1-T7"],
-        "status": "todo"
-      },
+        "status": "done", "evidence": ["backend 91% coverage, frontend 97%, contract tests vs the real image"]},
       {
         "id": "RD-03",
         "name": "Experiment tracking",
         "plan": "Forecast metrics per model version + benchmark results",
         "covered_by": ["I2-T1", "I2-T7"],
-        "status": "todo"
-      },
+        "status": "done", "evidence": ["docs/benchmark.json", "forecast MAPE vs noise floor on the dashboard"]},
       {
         "id": "RD-04",
         "name": "Model versioning",
         "plan": "models/forecast-<ver>.json, MODEL_VERSION, GET /model/info",
         "covered_by": ["I2-T1"],
-        "status": "todo"
-      },
-      {"id": "RD-05", "name": "Decision audit history", "plan": "decisions table + UI page", "covered_by": ["I2-T5", "I2-T6"], "status": "todo"},
-      {"id": "RD-06", "name": "Deployment versioning", "plan": "Images tagged by git SHA, IMAGE_TAG", "covered_by": ["I5-T4"], "status": "todo"},
+        "status": "done", "evidence": ["MODEL_VERSION + server/models/forecast-v1.json + GET /model/info"]},
+      {"id": "RD-05", "name": "Decision audit history", "plan": "decisions table + UI page", "covered_by": ["I2-T5", "I2-T6"], "status": "done", "evidence": ["decisions table + Plans view decision history"]},
+      {"id": "RD-06", "name": "Deployment versioning", "plan": "Images tagged by git SHA, IMAGE_TAG", "covered_by": ["I5-T4"], "status": "in_progress", "evidence": ["IMAGE_REPO/IMAGE_TAG in compose; CI pushes :<sha>"], "notes": "GHCR push not yet executed."},
       {
         "id": "RD-07",
         "name": "Simulation replay",
         "plan": "Deterministic replay via /admin/reset + /admin/step",
         "covered_by": ["I2-T7"],
-        "status": "todo"
-      },
-      {"id": "RD-08", "name": "Scenario configuration", "plan": "scenarios/*.yaml + run_scenario.py", "covered_by": ["I4-T1"], "status": "todo"},
+        "status": "done", "evidence": ["scripts/run_scenario.py, scripts/benchmark.py (reset + step)"]},
+      {"id": "RD-08", "name": "Scenario configuration", "plan": "scenarios/*.yaml + run_scenario.py", "covered_by": ["I4-T1"], "status": "done", "evidence": ["scenarios/*.yaml"]},
       {
         "id": "RD-09",
         "name": "Automated fallback",
         "plan": "Heuristic policy on intelligence failure; templates on LLM failure",
         "covered_by": ["I3-T3", "I4-T2"],
-        "status": "todo"
-      },
+        "status": "done", "evidence": ["heuristic fallback + template fallback, drill 1"]},
       {
         "id": "RD-10",
         "name": "Rollback",
         "plan": "Image/git tag rollback, model version rollback, planner ↔ heuristic switch (PLANNER_POLICY)",
         "covered_by": ["I5-T1"],
-        "status": "todo"
-      }
+        "status": "done", "evidence": ["README rollback: image tag, PLANNER_POLICY, MODEL_VERSION, Manual mode"]}
     ],
     "optional_advanced": [
       {"name": "Reinforcement learning", "decision": "could", "covered_by": ["OPT-T3"]},
@@ -759,9 +752,8 @@
       "must_show": "Warning, shortage impact, decision response, recovery",
       "sim_events": ["shipment_delay"],
       "scenario_file": "scenarios/shipment-delay.yaml",
-      "status": "todo",
-      "covered_by": ["I4-T1"]
-    },
+      "status": "done",
+      "covered_by": ["I4-T1"], "evidence": ["docs/scenarios/shipment-delay.md"]},
     {
       "id": "CR-02",
       "scenario": "Demand spike",
@@ -769,9 +761,8 @@
       "must_show": "Risk change, forecast/detection response, allocation adaptation",
       "sim_events": ["demand_spike"],
       "scenario_file": "scenarios/demand-spike.yaml",
-      "status": "todo",
-      "covered_by": ["I4-T1"]
-    },
+      "status": "done",
+      "covered_by": ["I4-T1"], "evidence": ["docs/scenarios/demand-spike.md"]},
     {
       "id": "CR-03",
       "scenario": "Depot constraint",
@@ -779,9 +770,8 @@
       "must_show": "Constraint handling, reallocation, service impact",
       "sim_events": ["depot_constraint", "supply_shortfall"],
       "scenario_file": "scenarios/depot-constraint.yaml",
-      "status": "todo",
-      "covered_by": ["I4-T1"]
-    },
+      "status": "done",
+      "covered_by": ["I4-T1"], "evidence": ["docs/scenarios/depot-constraint.md"]},
     {
       "id": "CR-04",
       "scenario": "Regional disruption",
@@ -789,9 +779,8 @@
       "must_show": "Alternative allocation and recovery behavior",
       "sim_events": ["route_disruption", "station_outage"],
       "scenario_file": "scenarios/route-disruption.yaml",
-      "status": "todo",
-      "covered_by": ["I4-T1"]
-    },
+      "status": "done",
+      "covered_by": ["I4-T1"], "evidence": ["docs/scenarios/route-disruption.md"]},
     {
       "id": "CR-05",
       "scenario": "Combined crisis",
@@ -799,9 +788,8 @@
       "must_show": "End-to-end resilience and failure boundaries",
       "sim_events": ["route_disruption", "shipment_delay", "demand_spike"],
       "scenario_file": "scenarios/combined-crisis.yaml",
-      "status": "todo",
-      "covered_by": ["I4-T1"]
-    }
+      "status": "done",
+      "covered_by": ["I4-T1"], "evidence": ["docs/scenarios/combined-crisis.md"]}
   ],
   "resilience_matrix": [
     {
@@ -1441,7 +1429,7 @@
       "priority": "must",
       "owners": ["App", "AI", "DevOps"],
       "depends_on": ["PLAN"],
-      "status": "todo",
+      "status": "in_progress",
       "goal": "Fuel moves automatically end to end through every layer, however simple",
       "tasks": [
         {
@@ -1450,8 +1438,8 @@
           "owner": "DevOps",
           "priority": "must",
           "requirements": ["R-DEVOPS-01"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["server/, frontend/ (static console, ADR-013), infra/, scenarios/, scripts/, loadtest/, docs/ exist"]
         },
         {
           "id": "I1-T2",
@@ -1459,8 +1447,8 @@
           "owner": "DevOps",
           "priority": "must",
           "requirements": ["R-DEVOPS-01", "R-ENV-02", "R-RES-05", "R-SEC-01", "R-SEC-04", "R-SEC-05"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["docker-compose.yml: simulator, backend, intelligence, prometheus, grafana (+ tools, locust profiles); SQLite not Postgres (ADR-012), no frontend container (ADR-013)", ".env.example documents every Settings field", "2026-09-29: docker compose up -d --build -> all health checks green against simulator 1.0.0"]
         },
         {
           "id": "I1-T3",
@@ -1468,8 +1456,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-CAP-08", "R-RES-02", "R-SEC-02", "R-SEC-03"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["server/fuelops/backend/integration/sim_client.py", "tests/test_integration_layer.py", "tests/test_simulator_contract.py: 27/27 vs the published image"]
         },
         {
           "id": "I1-T4",
@@ -1477,8 +1465,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-CAP-01", "R-PLAT-01", "R-DATA-01"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["state/sync.py, cache.py, store.py (SQLite mirror)", "tests/test_backend_units.py store round-trip + restore"]
         },
         {
           "id": "I1-T5",
@@ -1486,8 +1474,8 @@
           "owner": "AI",
           "priority": "must",
           "requirements": ["R-CAP-03", "R-INT-X2", "R-SEC-03"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["decision/heuristic.py, preflight.py, actuator.py (deterministic idempotency keys)", "docs/benchmark.md: heuristic 96-97% service level"]
         },
         {
           "id": "I1-T6",
@@ -1495,8 +1483,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-CAP-01", "R-APP-01", "R-APP-02", "R-APP-03", "R-APP-04", "R-APP-07", "R-APP-08", "R-PLAT-04"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["GET /api/state + frontend/js/views/overview.js", "frontend/tests/views.test.js"]
         },
         {
           "id": "I1-T7",
@@ -1504,26 +1492,24 @@
           "owner": "DevOps",
           "priority": "must",
           "requirements": ["R-DEVOPS-02", "R-DEVOPS-03", "R-ENV-02"],
-          "status": "todo",
-          "evidence": []
-        },
+          "status": "in_progress",
+          "evidence": [".github/workflows/ci.yml: ruff, pytest (80% gate), TestCase, eslint + vitest (80% gate), contract tests vs the published image, compose smoke with CR-01 replay", "every step run locally 2026-09-29"], "notes": "Not yet executed on GitHub Actions."},
         {
           "id": "I1-T8",
           "title": "Spike: answer Q-01..Q-09 → docs/simulator-findings.md",
           "owner": "AI",
           "priority": "must",
           "requirements": ["R-ENV-02", "R-UND-01"],
-          "status": "todo",
-          "evidence": []
-        },
+          "status": "in_progress",
+          "evidence": ["tests/test_simulator_contract.py answers Q-01..Q-09 against the real image (27/27)", "tick timing measured on the image: a step processes tick t then shows t+1; events apply start_tick..end_tick inclusive (docs in the test module and simfake/world.py)"], "notes": "docs/simulator-findings.md not written; findings live in the contract test module."},
         {
           "id": "I1-T9",
           "title": "/metrics baseline: request rate, latency, errors",
           "owner": "DevOps",
           "priority": "must",
           "requirements": ["R-OBS-01"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["/metrics on backend and intelligence (fuelops_* + process_*)"]
         }
       ],
       "done_when": ["docker compose up → fuel moves automatically", "Heuristic beats no-action over 1 sim day (step mode)", "CI green", "Q-01..Q-09 answered"]
@@ -1535,7 +1521,7 @@
       "priority": "must",
       "owners": ["AI", "App", "DevOps"],
       "depends_on": ["I1"],
-      "status": "todo",
+      "status": "done",
       "goal": "Explained, approvable plans from the rolling-horizon planner that beat the heuristic",
       "tasks": [
         {
@@ -1544,8 +1530,8 @@
           "owner": "AI",
           "priority": "must",
           "requirements": ["R-INT-01", "R-INT-P1", "R-PLAT-02", "R-OBS-03"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["intelligence/forecast.py", "tests/test_forecast.py"]
         },
         {
           "id": "I2-T2",
@@ -1553,8 +1539,8 @@
           "owner": "AI",
           "priority": "must",
           "requirements": ["R-CAP-02", "R-INT-P2", "R-INT-P3", "R-INT-P4", "R-PLAT-02"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["shared/risk.py (P(stockout) 4/12/24 h)", "tests/test_risk.py"]
         },
         {
           "id": "I2-T3",
@@ -1562,8 +1548,8 @@
           "owner": "AI",
           "priority": "must",
           "requirements": ["R-CAP-03", "R-CAP-04", "R-CAP-05", "R-INT-01", "R-INT-X1", "R-INT-X3", "R-INT-D3", "R-PLAT-03", "R-DS-01"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["intelligence/planner.py (PuLP + CBC, ADR-011)", "tests/test_planner.py", "docs/benchmark.md: 100% service level, 0 stockout hours in all 3 scenarios"]
         },
         {
           "id": "I2-T4",
@@ -1571,8 +1557,8 @@
           "owner": "AI",
           "priority": "must",
           "requirements": ["R-APP-10", "R-DS-01"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["POST /api/evaluate (bounded concurrency, 429)", "what-if in the Plans view"]
         },
         {
           "id": "I2-T5",
@@ -1580,8 +1566,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-DS-02", "R-RES-03", "R-PLAT-03"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["orchestrator.py: TTL, Manual/Assisted/Auto, audit trail; operator actions hold the cycle lock (ADR-014)", "tests/test_e2e.py, tests/test_hardening.py"]
         },
         {
           "id": "I2-T6",
@@ -1589,8 +1575,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-CAP-03", "R-CAP-05", "R-APP-06", "R-APP-09", "R-APP-10", "R-APP-12", "R-DS-01", "R-DS-02", "R-PLAT-04"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["frontend/js/views/plans.js", "frontend/tests/views.test.js"]
         },
         {
           "id": "I2-T7",
@@ -1598,8 +1584,8 @@
           "owner": "DevOps",
           "priority": "must",
           "requirements": ["R-INT-01"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["scripts/benchmark.py", "docs/benchmark.md + docs/benchmark.json (9 runs x 288 ticks on the real simulator)"]
         },
         {
           "id": "I2-T8",
@@ -1607,8 +1593,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-APP-07"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["frontend/js/views/supply.js", "frontend/tests/views.test.js"]
         }
       ],
       "done_when": [
@@ -1624,7 +1610,7 @@
       "priority": "must",
       "owners": ["App", "AI", "DevOps"],
       "depends_on": ["I2"],
-      "status": "todo",
+      "status": "done",
       "goal": "Every failure mode shows detect → degrade → recover, visibly (MVP line)",
       "tasks": [
         {
@@ -1633,8 +1619,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-CAP-06", "R-RES-02", "R-RES-03", "R-RES-04", "R-RES-05"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["integration/breaker.py (HALF_OPEN probe fix + watchdog)", "docs/resilience-drills.md drills 2 and 4"]
         },
         {
           "id": "I3-T2",
@@ -1642,8 +1628,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-CAP-06", "R-RES-04"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["integration/sse_listener.py", "docs/resilience-drills.md drill 3: polling fallback + reconnect"]
         },
         {
           "id": "I3-T3",
@@ -1651,8 +1637,8 @@
           "owner": "AI",
           "priority": "must",
           "requirements": ["R-CAP-06", "R-RES-01", "R-RES-04", "R-INT-X4"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["docs/resilience-drills.md drill 1 (intelligence down) and 5 (DB down, replay on recovery)", "tests/test_hardening.py"]
         },
         {
           "id": "I3-T4",
@@ -1660,8 +1646,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-CAP-02", "R-CAP-04", "R-INT-D1", "R-INT-D2", "R-INT-D4", "R-APP-05", "R-APP-08", "R-APP-11", "R-ENV-01"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["alerts/detectors.py, alerts/manager.py", "docs/scenarios/*.md"]
         },
         {
           "id": "I3-T5",
@@ -1669,8 +1655,8 @@
           "owner": "DevOps",
           "priority": "must",
           "requirements": ["R-OBS-01", "R-OBS-03", "R-OBS-04", "R-PLAT-05"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["infra/prometheus/alerts.yml (9 rules)", "infra/grafana/dashboards/fuelops.json (26 panels, generated by build_dashboard.py)"]
         },
         {
           "id": "I3-T6",
@@ -1678,8 +1664,8 @@
           "owner": "App",
           "priority": "must",
           "requirements": ["R-HEALTH-01", "R-APP-11", "R-APP-13", "R-SEC-06", "R-PLAT-04", "R-PLAT-05", "R-LOOP-02"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["/api/health board + Health view + token-gated chaos drawer", "frontend/login.html + js/auth.js (operator token)", "banners in frontend/js/app.js"]
         }
       ],
       "done_when": ["Stopping intelligence and each simulator fault show detect → degrade → recover in UI and Grafana without manual restarts"]
@@ -1691,7 +1677,7 @@
       "priority": "must",
       "owners": ["AI", "DevOps", "App"],
       "depends_on": ["I3"],
-      "status": "todo",
+      "status": "done",
       "goal": "Crisis handling evidence, explanations and load-test evidence (partial allowed; feature freeze at hour 21)",
       "tasks": [
         {
@@ -1700,8 +1686,8 @@
           "owner": "DevOps",
           "priority": "must",
           "requirements": ["R-CAP-04", "R-CRISIS-01"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["scenarios/*.yaml (CR-01..CR-05)", "scripts/run_scenario.py", "docs/scenarios/*.md: all checks pass", "docs/resilience-evidence.md"]
         },
         {
           "id": "I4-T2",
@@ -1709,17 +1695,16 @@
           "owner": "AI",
           "priority": "should",
           "requirements": ["R-CAP-05", "R-INT-G1", "R-INT-G2", "R-INT-G4", "R-INT-G5"],
-          "status": "todo",
-          "evidence": []
-        },
+          "status": "done",
+          "evidence": ["explain/llm.py + templates.py (async, cached, timeout, template fallback)", "network briefing card on the Overview (frontend/tests/briefing.test.js)"], "notes": "Verified with the template fallback; the Claude path is unit-tested with a fake client, not run with a real key."},
         {
           "id": "I4-T3",
           "title": "Locust: dashboard read path + end-to-end decision request; ramp; avg/p50/p95/p99, throughput, errors, docker stats; docs/load-test-report.md",
           "owner": "DevOps",
           "priority": "must",
           "requirements": ["R-CAP-07", "R-LOAD-01", "R-LOAD-02", "R-LOAD-03", "R-OBS-02"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["loadtest/locustfile.py + loadtest/results/", "docs/load-test-report.md: 0 failures up to 100 users; ceiling ~121 req/s (1 backend core); decision loop tick lag 0 under saturation"]
         }
       ],
       "done_when": [
@@ -1735,7 +1720,7 @@
       "priority": "must",
       "owners": ["All"],
       "depends_on": ["I4"],
-      "status": "todo",
+      "status": "in_progress",
       "goal": "Documented, evidenced, rehearsed submission with buffer for surprises",
       "tasks": [
         {
@@ -1744,8 +1729,8 @@
           "owner": "All",
           "priority": "must",
           "requirements": ["R-DEVOPS-01", "R-DATA-02", "R-SEC-04", "R-RES-05"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["README.md: setup, configuration, run, evidence, rollback, data sources and assumptions"]
         },
         {
           "id": "I5-T2",
@@ -1753,8 +1738,8 @@
           "owner": "All",
           "priority": "must",
           "requirements": ["R-UND-01"],
-          "status": "todo",
-          "evidence": []
+          "status": "done",
+          "evidence": ["Mermaid diagrams in README.md and architecture.md (render on GitHub)", "README evidence index"]
         },
         {
           "id": "I5-T3",
@@ -1771,9 +1756,8 @@
           "owner": "DevOps",
           "priority": "should",
           "requirements": ["R-DEVOPS-02", "R-DEVOPS-03"],
-          "status": "todo",
-          "evidence": []
-        }
+          "status": "in_progress",
+          "evidence": [".github/workflows/ci.yml publish job: ghcr.io/<owner>/fuelops-server:<sha> on main"], "notes": "Not yet executed on GitHub Actions."}
       ],
       "done_when": ["All required deliverables D-01..D-11 done with evidence", "Demo rehearsed twice"]
     },
@@ -1920,12 +1904,12 @@
     }
   ],
   "progress": {
-    "current_iteration": "PLAN",
-    "next_step": "Start I1 at hour 0: scaffold + compose (DevOps/App) while AI runs the I1-T8 spike",
+    "current_iteration": "I5",
+    "next_step": "Run CI on GitHub (I1-T7, I5-T4), write docs/simulator-findings.md (I1-T8), rehearse the demo twice (I5-T3, D-11)",
     "mvp_line": "After I3 (hour 18)",
     "feature_freeze": "Hour 21",
-    "iterations": {"total": 7, "done": 0, "in_progress": 1, "todo": 6},
-    "required_deliverables": {"total": 11, "done": 0, "in_progress": 2, "todo": 9},
+    "iterations": {"total": 7, "done": 3, "in_progress": 3, "todo": 1},
+    "required_deliverables": {"total": 11, "done": 10, "in_progress": 0, "todo": 1},
     "open_questions": {"total": 10, "answered": 0}
   }
 }

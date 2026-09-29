@@ -410,6 +410,31 @@ The planner also holds 100% under the demand-spike and combined-crisis replays.
 | CR-04 Regional disruption | 7 / 7 pass | 97.81% (minimum 90.35%) |
 | CR-05 Combined crisis (events + injected 503s + stale data) | 5 / 5 pass | 100.00% |
 
+### Resilience (brief §11)
+
+[`docs/resilience-evidence.md`](docs/resilience-evidence.md) maps every required failure to its mechanism, live drill
+and tests. [`docs/resilience-drills.md`](docs/resilience-drills.md) (all 6 drills pass on the live stack):
+
+| Drill | Detected | Recovered |
+|---|---|---|
+| Intelligence service stopped | heuristic fallback in ~1–2 s, decisions every tick | planner back after restart |
+| Simulator API 503s (20 s) | read breaker open, UI served from cache | breaker closed ~20 s after the fault ended |
+| SSE stream down across a backend restart | polling fallback, ticks keep syncing | stream reconnected after the fault |
+| Stale simulator data | stale in 0.5 s, auto-approval blocked, alert | fresh again when the fault ended |
+| SQLite down | health + alert, running from memory | decisions made meanwhile written back |
+| Backend restart | back in ~3 s | plans and decisions restored from SQLite |
+
+The drills found two bugs that the in-process tests had missed (the client never recovered from an outage that
+ended mid-probe; decisions made during a database outage were lost); both are fixed and covered by
+`tests/test_hardening.py`.
+
+### Load (brief §17)
+
+[`docs/load-test-report.md`](docs/load-test-report.md): with the system live (simulator running, decision loop
+planning every tick), **0 failures** from 10 to 100 concurrent operators, throughput linear (4.6 → 44.9 req/s),
+p95 ≈ 100–150 ms. Saturation ceiling ≈ **121 req/s** = one backend CPU core; past it requests queue (p95 ≈ 1 s) but
+do not fail, what-if work is shed with 429, and the decision loop never falls behind (tick lag 0).
+
 ### Reproduce
 
 | Evidence | Command | Output |

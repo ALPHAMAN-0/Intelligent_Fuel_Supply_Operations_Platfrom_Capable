@@ -5,6 +5,11 @@ Default target: the in-process test double. Point it at the real simulator to tu
     CONTRACT_SIM_URL=http://localhost:8000 pytest tests/test_simulator_contract.py
 
 Every test starts from POST /admin/reset + /admin/pause, so it is deterministic on either target.
+
+Timing (measured on the published image 1.0.0): a step processes tick t and then shows tick t+1, so snapshots after
+a step reflect the tick just processed. Events are applied at the start of tick start_tick (demand rows
+start_tick..end_tick inclusive) and so are ACTIVE in snapshots from tick start_tick+1; an event injected with
+start_tick <= now stays SCHEDULED until the next step. Allocations depart while their creation tick is processed.
 """
 
 from __future__ import annotations
@@ -114,7 +119,8 @@ async def test_world_is_deterministic(sim):
 
 @pytest.mark.req("R-SEC-03")
 async def test_q03_allocation_lifecycle_timing(sim):
-    """Q-03: created at t (PENDING), departs t+1 (IN_TRANSIT), arrives t+1+transit (ARRIVED); stock moves."""
+    """Q-03: created at t (PENDING); departs while tick t is processed (departure_tick t, IN_TRANSIT from t+1);
+    arrives while tick t+transit is processed (actual_arrival_tick t+transit, ARRIVED from t+transit+1)."""
     depot_before = (await get(sim, "/v1/depots/depot-gazipur"))["inventory"]["DIESEL"]
     r = await sim.post("/v1/allocations", json=alloc("life-1"))
     assert r.status_code == 201
@@ -123,10 +129,13 @@ async def test_q03_allocation_lifecycle_timing(sim):
     assert (await get(sim, "/v1/depots/depot-gazipur"))["inventory"]["DIESEL"] == depot_before - 3000
     await step(sim)
     a = next(x for x in await get(sim, "/v1/allocations") if x["id"] == a["id"])
-    assert a["status"] == "IN_TRANSIT" and a["departure_tick"] == 1 and a["expected_arrival_tick"] == 3
-    await step(sim, 2)
+    assert a["status"] == "IN_TRANSIT" and a["departure_tick"] == 0 and a["expected_arrival_tick"] == 2
+    await step(sim)
     a = next(x for x in await get(sim, "/v1/allocations") if x["id"] == a["id"])
-    assert a["status"] == "ARRIVED" and a["actual_arrival_tick"] == 3
+    assert a["status"] == "IN_TRANSIT", "still in transit at tick 2 (arrival is processed during tick 2)"
+    await step(sim)
+    a = next(x for x in await get(sim, "/v1/allocations") if x["id"] == a["id"])
+    assert a["status"] == "ARRIVED" and a["actual_arrival_tick"] == 2
 
 
 @pytest.mark.req("R-SEC-03")
@@ -227,6 +236,9 @@ async def test_demand_spike_multiplies_and_reverts(sim):
                  parameters={"region_ids": ["region-dhaka"], "multiplier": 1.8})
     await step(sim)
     st = {s["id"]: s for s in await get(sim, "/v1/stations")}
+    assert st["station-mirpur"]["demand_multiplier"] == pytest.approx(1.0), "tick 1 not processed yet: SCHEDULED"
+    await step(sim)
+    st = {s["id"]: s for s in await get(sim, "/v1/stations")}
     assert st["station-mirpur"]["demand_multiplier"] == pytest.approx(1.8)
     assert st["station-karnaphuli"]["demand_multiplier"] == pytest.approx(1.0)
     await step(sim, 2)
@@ -238,10 +250,11 @@ async def test_demand_spike_multiplies_and_reverts(sim):
 
 async def test_route_disruption_blocks_and_fails_departures(sim):
     """A disrupted route rejects new allocations (409) and fails PENDING ones at departure."""
-    a = (await sim.post("/v1/allocations", json=alloc("r-1"))).json()
     await inject(sim, type="route_disruption", start_tick=1, duration_ticks=5,
                  parameters={"route_ids": ["route-gazipur-mirpur"]})
-    await step(sim)
+    await step(sim)                                                      # tick 1: still AVAILABLE (SCHEDULED)
+    a = (await sim.post("/v1/allocations", json=alloc("r-1"))).json()    # PENDING, departs while tick 1 is processed
+    await step(sim)                                                      # ...but tick 1 disrupts the route first
     routes = {r["id"]: r for r in await get(sim, "/v1/routes")}
     assert routes["route-gazipur-mirpur"]["status"] == "DISRUPTED"
     a = next(x for x in await get(sim, "/v1/allocations") if x["id"] == a["id"])
@@ -255,7 +268,7 @@ async def test_q04_station_outage_serves_nothing(sim):
     """Q-04: during an outage the station serves 0 and demand is recorded as unmet; allocations are refused."""
     await inject(sim, type="station_outage", start_tick=1, duration_ticks=3,
                  parameters={"station_ids": ["station-tongi"]})
-    await step(sim)
+    await step(sim, 2)                                                   # rows for tick 1 exist; station OUTAGE
     rows = [r for r in await get(sim, "/v1/demand-history?station_id=station-tongi&limit=3")]
     assert rows and all(r["served_liters"] == 0 and r["unmet_liters"] == pytest.approx(r["demand_liters"])
                         for r in rows)
@@ -266,6 +279,8 @@ async def test_q04_station_outage_serves_nothing(sim):
 async def test_q05_depot_constraint_is_still_shippable(sim):
     """Q-05: a CONSTRAINED depot still accepts allocations (status changes; capacity number unchanged here)."""
     await inject(sim, type="depot_constraint", start_tick=0, duration_ticks=3, parameters={"depot_ids": ["depot-gazipur"]})
+    assert (await get(sim, "/v1/depots/depot-gazipur"))["status"] == "OPEN", "applied when the next tick is processed"
+    await step(sim)
     d = await get(sim, "/v1/depots/depot-gazipur")
     assert d["status"] == "CONSTRAINED"
     assert (await sim.post("/v1/allocations", json=alloc("dc-1"))).status_code == 201
@@ -278,6 +293,7 @@ async def test_shipment_delay_and_supply_shortfall(sim):
                  parameters={"depot_ids": ["depot-gazipur"], "fuel_types": ["DIESEL"], "delay_ticks": 3})
     await inject(sim, type="supply_shortfall", start_tick=0, duration_ticks=1,
                  parameters={"depot_ids": ["depot-patiya"], "fuel_types": ["DIESEL"], "factor": 0.5})
+    await step(sim)                                                      # one-shot effects apply while tick 0 runs
     after = {s["id"]: s for s in await get(sim, "/v1/supply-arrivals")}
     g = next(k for k, v in before.items() if v["depot_id"] == "depot-gazipur" and v["fuel_type"] == "DIESEL")
     p = next(k for k, v in before.items() if v["depot_id"] == "depot-patiya" and v["fuel_type"] == "DIESEL")

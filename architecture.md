@@ -446,6 +446,26 @@ AVAILABLE route from a depot with stock and dispatch headroom; ship
 *(Optional, only if time remains: an RL policy trained offline via `/admin/reset` + `/admin/step`, compared with the
 heuristic and the planner in the benchmark.)*
 
+### 5.6 Simulator tick semantics (measured) and a known modelling gap
+
+Measured on the published image 1.0.0 (`tests/test_simulator_contract.py`, 27/27 against the real image and the
+in-process double): a step **processes tick t, then shows tick t+1**. So:
+- demand rows, departures and arrivals are labelled with the processed tick;
+- an allocation departs while its creation tick is processed (`departure_tick = created_tick`,
+  `expected_arrival_tick = created_tick + transit`);
+- an event affects ticks `start_tick..end_tick` **inclusive** and appears ACTIVE in snapshots from `start_tick + 1`;
+- an event injected with `start_tick <= now` stays SCHEDULED until the next step.
+
+The in-process simulator double (`fuelops/simfake`) was one tick early and has been aligned.
+
+**Known gap in the world model (`fuelops/shared/world.py`):** `in_window` treats an event as covering `start..end-1`
+(one tick short at the end), and a PENDING allocation is assumed to arrive at `created + 1 + transit` (one tick late).
+Effects are at most one 15-minute tick: the planner may expect a disrupted route or closed station back one tick
+early (the actuator's preflight re-reads the live route and station before every POST, so this cannot produce a
+failed allocation), and it credits pending shipments one tick late (conservative). Fix when there is time:
+inclusive `in_window`, `tick > end_tick` for ACTIVE events, and `created + transit` for pending arrivals, then
+re-baseline the planner tests.
+
 ---
 
 ## 6. Data model (SQLite, ADR-012)

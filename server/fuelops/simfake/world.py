@@ -200,33 +200,32 @@ class World:
               "end_tick": start_tick + duration_ticks, "status": "SCHEDULED", "parameters": parameters or {}}
         self.events.append(ev)
         self.log("event.created", "event", ev["id"], {"type": type_})
-        if start_tick <= self.tick:
-            self._activate(ev)
-        return ev
+        return ev  # like the real image: even start_tick <= now stays SCHEDULED until the next tick is processed
 
     # --------------------------------------------------------------- tick
 
     def tick_once(self) -> dict[str, list]:
+        """Process tick t, then advance to t + 1, matching simulator 1.0.0 (verified against the published image).
+
+        A step that returns tick T therefore exposes tick T-1's demand rows, departures and arrivals. Events are active
+        for demand rows start_tick..end_tick inclusive: activated before tick start_tick's demand and resolved after
+        tick end_tick's demand, so snapshots show them ACTIVE at ticks start_tick+1..end_tick.
+        """
         changes: dict[str, list] = {"allocations": [], "depots": []}
-        self.tick += 1
+        t = self.tick
         for ev in self.events:
-            if ev["status"] == "ACTIVE" and ev["end_tick"] <= self.tick:
-                self._resolve(ev)
-        for ev in self.events:
-            if ev["status"] == "SCHEDULED" and ev["start_tick"] <= self.tick:
+            if ev["status"] == "SCHEDULED" and ev["start_tick"] <= t:
                 self._activate(ev)
-                if ev["end_tick"] <= self.tick:
-                    self._resolve(ev)
         for s in self.supply:
-            if s["status"] != "ARRIVED" and s["planned_tick"] <= self.tick:
+            if s["status"] != "ARRIVED" and s["planned_tick"] <= t:
                 d = self.depot(s["depot_id"])
                 d["inventory"][s["fuel_type"]] = min(d["capacity"][s["fuel_type"]],
                                                      d["inventory"][s["fuel_type"]] + s["quantity"])
-                s["status"], s["actual_tick"] = "ARRIVED", self.tick
+                s["status"], s["actual_tick"] = "ARRIVED", t
                 self.log("supply.arrived", "supply", s["id"], {"quantity": s["quantity"]})
                 changes["depots"].append(d["id"])
         for a in self.allocations:
-            if a["status"] == "PENDING" and a["created_tick"] < self.tick:
+            if a["status"] == "PENDING" and a["created_tick"] <= t:
                 r = self.route(a["route_id"])
                 if r["status"] != "AVAILABLE":
                     a["status"], a["failure_reason"] = "FAILED", "ROUTE_DISRUPTED"
@@ -234,17 +233,26 @@ class World:
                     d["inventory"][a["fuel_type"]] += a["quantity"]
                     changes["depots"].append(d["id"])
                 else:
-                    a["status"], a["departure_tick"] = "IN_TRANSIT", self.tick
-                    a["expected_arrival_tick"] = self.tick + r["transit_ticks"]
+                    a["status"], a["departure_tick"] = "IN_TRANSIT", t
+                    a["expected_arrival_tick"] = t + r["transit_ticks"]
                     self.log("allocation.departed", "allocation", a["id"])
                 changes["allocations"].append(a)
-            elif a["status"] == "IN_TRANSIT" and a["expected_arrival_tick"] <= self.tick:
+            elif a["status"] == "IN_TRANSIT" and a["expected_arrival_tick"] <= t:
                 st = self.station(a["destination_station_id"])
                 f = a["fuel_type"]
                 st["inventory"][f] = min(st["capacity"][f], st["inventory"][f] + a["quantity"])
-                a["status"], a["actual_arrival_tick"] = "ARRIVED", self.tick
+                a["status"], a["actual_arrival_tick"] = "ARRIVED", t
                 self.log("allocation.arrived", "allocation", a["id"])
                 changes["allocations"].append(a)
+        self._generate_demand(t)
+        for ev in self.events:
+            if ev["status"] == "ACTIVE" and ev["end_tick"] <= t:
+                self._resolve(ev)
+        self.tick += 1
+        self.log("simulation.tick", "simulation", self.tick)
+        return changes
+
+    def _generate_demand(self, t: int) -> None:
         region = {r["id"]: r["demand_factor"] for r in self.regions}
         hour = self.sim_time.hour
         ticks_per_day = 1440 / self.tick_minutes
@@ -262,11 +270,9 @@ class World:
                 self.served += served
                 self.unmet += demand - served
                 self.demand.append({"id": len(self.demand) + 1, "station_id": st["id"], "fuel_type": f,
-                                    "tick": self.tick, "sim_time": self.sim_time.isoformat(),
+                                    "tick": t, "sim_time": self.sim_time.isoformat(),
                                     "demand_liters": round(demand, 3), "served_liters": round(served, 3),
                                     "unmet_liters": round(demand - served, 3)})
-        self.log("simulation.tick", "simulation", self.tick)
-        return changes
 
     # -------------------------------------------------------- allocations
 
