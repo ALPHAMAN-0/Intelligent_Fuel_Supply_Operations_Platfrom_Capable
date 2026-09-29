@@ -5,6 +5,8 @@ import { api as defaultApi, canAct as defaultCanAct } from './api.js';
 import { getToken, loginUrl, signOut } from './auth.js';
 import { clear, h, mount, pill } from './dom.js';
 import { pct, simTime, statusTone, throttle } from './format.js';
+import { icon, logoMark } from './icons.js';
+import { currentTheme, toggleTheme } from './theme.js';
 import * as alerts from './views/alerts.js';
 import * as health from './views/health.js';
 import * as overview from './views/overview.js';
@@ -13,12 +15,22 @@ import * as station from './views/station.js';
 import * as supply from './views/supply.js';
 
 export const ROUTES = {
-  overview: { label: 'Overview', module: overview },
-  plans: { label: 'Plans', module: plans },
-  alerts: { label: 'Alerts & incidents', module: alerts },
-  supply: { label: 'Supply & shipments', module: supply },
-  health: { label: 'Health', module: health },
+  overview: { label: 'Overview', module: overview,
+    about: 'Live state of the simulated network: stock, stockout risk, incoming supply and open incidents.' },
+  plans: { label: 'Plans', module: plans,
+    about: 'One plan per decision cycle. Inspect every line, then approve, modify or reject it.' },
+  alerts: { label: 'Alerts & incidents', module: alerts,
+    about: 'Detected problems, correlated into incidents with a timeline and a plain-language summary.' },
+  supply: { label: 'Supply & shipments', module: supply,
+    about: 'Depot resupply schedule, delays and shortfalls, and every allocation the platform has sent.' },
+  health: { label: 'Health', module: health,
+    about: 'Component health, integration resilience, model accuracy, and the chaos drawer for demos.' },
 };
+
+function stat(label, value, extra = {}) {
+  return h('span', { class: ['stat', extra.class] }, h('span', { class: 'stat-label' }, `${label} `),
+    h('span', { class: 'stat-value' }, value));
+}
 
 export function parseRoute(hash) {
   const name = String(hash ?? '').replace(/^#\/?/, '').split(/[/?]/)[0];
@@ -109,38 +121,48 @@ export function createConsole({ root, api = defaultApi, canAct = defaultCanAct, 
     const m = s?.world?.metrics;
     const hb = ui.lastHealth;
     const auth = getToken()
-      ? h('span', { class: 'auth' }, pill('operator', 'ok'), h('button', { type: 'button', class: 'btn btn-sm',
-        onclick: () => signOut() }, 'Sign out'))
-      : h('a', { class: 'btn btn-sm primary', href: loginUrl(`/${win?.location?.hash ?? ''}`) }, 'Sign in to act');
+      ? h('span', { class: 'auth' }, pill('operator', 'ok'), h('button', { type: 'button', class: 'btn btn-sm btn-ghost',
+        onclick: () => signOut() }, icon('signout', { size: 16 }), 'Sign out'))
+      : h('a', { class: 'btn btn-sm primary', href: loginUrl(`/${win?.location?.hash ?? ''}`) },
+        icon('key', { size: 16 }), 'Sign in to act');
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
+    const themeToggle = h('button', { type: 'button', class: 'btn btn-sm btn-icon', 'data-action': 'theme',
+      'aria-label': `Switch to ${next} theme`, title: `Switch to ${next} theme`,
+      onclick: () => { toggleTheme(); renderHeader(); } }, icon(next === 'light' ? 'sun' : 'moon', { size: 16 }));
+    const slTone = !m ? '' : m.service_level >= 0.99 ? 'good' : m.service_level >= 0.95 ? 'watch' : 'bad';
     mount(header,
-      h('div', { class: 'brand' }, h('strong', {}, 'FuelOps'), h('span', { class: 'badge', 'aria-label': 'All data shown is simulated' },
-        'SIMULATED DATA')),
+      h('a', { class: 'brand', href: '#/overview' }, logoMark(),
+        h('span', { class: 'brand-text' }, h('strong', {}, 'FuelOps'), h('span', { class: 'brand-sub' }, 'Operations console')),
+        h('span', { class: 'badge', 'aria-label': 'All data shown is simulated' }, 'SIMULATED DATA')),
       h('div', { class: 'header-stats' },
-        inst ? [h('span', {}, `Tick ${inst.tick}`), h('span', {}, simTime(inst.sim_time)), pill(inst.status, statusTone(inst.status))]
+        inst ? [stat('Tick', String(inst.tick), { class: 'mono' }), stat('Sim time', simTime(inst.sim_time)),
+          pill(inst.status, statusTone(inst.status))]
           : h('span', { class: 'muted' }, 'no simulator state'),
-        m ? h('span', {}, 'Service ', h('strong', {}, pct(m.service_level, 2))) : null,
-        s?.decision ? h('span', {}, `Mode ${s.decision.mode}`) : null,
+        m ? stat('Service', pct(m.service_level, 2), { class: ['service', slTone && `sl-${slTone}`] }) : null,
+        s?.decision ? stat('Mode', s.decision.mode) : null,
         hb ? pill(`system ${hb.status}`, statusTone(hb.status)) : null),
-      auth);
+      h('div', { class: 'header-actions' }, themeToggle, auth));
     mount(banners, bannersFor(s, hb).map((b) => h('div', { class: ['banner', `tone-${b.tone}`] }, b.text)));
   }
 
   function renderNav() {
-    mount(nav, Object.entries(ROUTES).map(([name, r]) => h('a', { href: `#/${name}`, class: ['tab', ui.route === name && 'active'],
-      'aria-current': ui.route === name ? 'page' : undefined }, r.label)));
+    mount(nav, h('div', { class: 'nav-inner' }, Object.entries(ROUTES).map(([name, r]) => h('a', { href: `#/${name}`,
+      class: ['tab', ui.route === name && 'active'], 'aria-current': ui.route === name ? 'page' : undefined },
+    icon(name), h('span', {}, r.label)))));
   }
 
   let viewSeq = 0;
   async function renderView() {
     const seq = ++viewSeq;
-    const mod = ROUTES[ui.route].module;
+    const route = ROUTES[ui.route];
+    const heading = h('div', { class: 'page-head' }, h('h1', {}, route.label), h('p', { class: 'page-sub' }, route.about));
     try {
-      const data = await mod.load(api, { alertStatus: ui.alertStatus });
+      const data = await route.module.load(api, { alertStatus: ui.alertStatus });
       if (seq !== viewSeq) return;
-      mount(main, mod.view(data, ctx));
+      mount(main, heading, route.module.view(data, ctx));
     } catch (err) {
       if (seq !== viewSeq) return;
-      mount(main, h('section', { class: 'card' }, h('p', {}, err.status === 503
+      mount(main, heading, h('section', { class: 'card notice' }, h('p', {}, err.status === 503
         ? 'Waiting for the backend to complete its first simulator sync…'
         : `Could not load this view: ${err.message}`)));
     }

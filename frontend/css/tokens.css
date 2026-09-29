@@ -1,0 +1,225 @@
+/* FuelOps design tokens, shared by the operator console and the login page.
+   Direction: a night-shift control room. Calm ink surfaces, one electric-cyan brand accent, and colour reserved for
+   meaning: green = healthy, amber = attention, red = act now, violet = informational. Dark is the signature theme;
+   light is tuned for projectors. The theme follows the OS unless the operator picks one ([data-theme]). */
+
+:root {
+  /* type: system UI for words, a mono for ticks, ids and eyebrow labels (the CSP allows no web fonts) */
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  --text-xs: 0.72rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  --duration-fast: 120ms;
+  --duration-normal: 220ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --header-height: 60px;
+  --content-max: 1480px;
+
+  color-scheme: dark;
+  /* dark (signature) */
+  --bg: #080c12;
+  --bg-grid: rgba(120, 160, 210, 0.045);
+  --surface: #0f151e;
+  --surface-2: #151d29;
+  --surface-3: #1c2634;
+  --surface-raised: #121a25;
+  --border: #1f2a39;
+  --border-strong: #2c3a4e;
+  --text: #e7edf5;
+  --text-2: #b4c0cf;
+  --muted: #7d8ca1;
+  --faint: #53627a;
+
+  --accent: #3fc1ff;
+  --accent-strong: #7bd4ff;
+  --accent-ink: #04131d;
+  --accent-soft: rgba(63, 193, 255, 0.13);
+  --focus: #ffd166;
+
+  --ok: #34d399;
+  --ok-soft: rgba(52, 211, 153, 0.13);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.14);
+  --critical: #ff5c64;
+  --critical-soft: rgba(255, 92, 100, 0.15);
+  --info: #a3a6ff;
+  --info-soft: rgba(163, 166, 255, 0.14);
+  --neutral-soft: rgba(125, 140, 161, 0.14);
+
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.55);
+  --glow-accent: 0 0 0 1px rgba(63, 193, 255, 0.35), 0 0 24px rgba(63, 193, 255, 0.15);
+
+  /* data viz */
+  --viz-actual: #e7edf5;
+  --viz-forecast: #3fc1ff;
+  --viz-band: rgba(63, 193, 255, 0.16);
+  --viz-with: #34d399;
+  --viz-without: #ff8a5c;
+  --viz-grid: rgba(125, 140, 161, 0.14);
+  --viz-capacity: #7d8ca1;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef2f7;
+  --bg-grid: rgba(20, 50, 90, 0.05);
+  --surface: #ffffff;
+  --surface-2: #f5f7fb;
+  --surface-3: #e9eef5;
+  --surface-raised: #ffffff;
+  --border: #dde3ec;
+  --border-strong: #c7d0dc;
+  --text: #0e1622;
+  --text-2: #334155;
+  --muted: #5d6b7e;
+  --faint: #94a0b2;
+
+  --accent: #0873c4;
+  --accent-strong: #065ea1;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(8, 115, 196, 0.1);
+  --focus: #c2410c;
+
+  --ok: #0f8a5f;
+  --ok-soft: rgba(15, 138, 95, 0.1);
+  --warning: #b45309;
+  --warning-soft: rgba(217, 119, 6, 0.12);
+  --critical: #cf2e37;
+  --critical-soft: rgba(207, 46, 55, 0.1);
+  --info: #5b4fd8;
+  --info-soft: rgba(91, 79, 216, 0.1);
+  --neutral-soft: rgba(93, 107, 126, 0.1);
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 24px 64px rgba(15, 23, 42, 0.18);
+  --glow-accent: 0 0 0 1px rgba(8, 115, 196, 0.35), 0 0 0 4px rgba(8, 115, 196, 0.1);
+
+  --viz-actual: #0e1622;
+  --viz-forecast: #0873c4;
+  --viz-band: rgba(8, 115, 196, 0.12);
+  --viz-with: #0f8a5f;
+  --viz-without: #d4561f;
+  --viz-grid: rgba(93, 107, 126, 0.16);
+  --viz-capacity: #94a0b2;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: #eef2f7;
+    --bg-grid: rgba(20, 50, 90, 0.05);
+    --surface: #ffffff;
+    --surface-2: #f5f7fb;
+    --surface-3: #e9eef5;
+    --surface-raised: #ffffff;
+    --border: #dde3ec;
+    --border-strong: #c7d0dc;
+    --text: #0e1622;
+    --text-2: #334155;
+    --muted: #5d6b7e;
+    --faint: #94a0b2;
+    --accent: #0873c4;
+    --accent-strong: #065ea1;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(8, 115, 196, 0.1);
+    --focus: #c2410c;
+    --ok: #0f8a5f;
+    --ok-soft: rgba(15, 138, 95, 0.1);
+    --warning: #b45309;
+    --warning-soft: rgba(217, 119, 6, 0.12);
+    --critical: #cf2e37;
+    --critical-soft: rgba(207, 46, 55, 0.1);
+    --info: #5b4fd8;
+    --info-soft: rgba(91, 79, 216, 0.1);
+    --neutral-soft: rgba(93, 107, 126, 0.1);
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.07);
+    --shadow-lg: 0 24px 64px rgba(15, 23, 42, 0.18);
+    --glow-accent: 0 0 0 1px rgba(8, 115, 196, 0.35), 0 0 0 4px rgba(8, 115, 196, 0.1);
+    --viz-actual: #0e1622;
+    --viz-forecast: #0873c4;
+    --viz-band: rgba(8, 115, 196, 0.12);
+    --viz-with: #0f8a5f;
+    --viz-without: #d4561f;
+    --viz-grid: rgba(93, 107, 126, 0.16);
+    --viz-capacity: #94a0b2;
+  }
+}
+
+/* ---- shared base ---------------------------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--bg-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-attachment: fixed;
+  color: var(--text);
+  font: 400 var(--text-md) / 1.5 var(--font-ui);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
