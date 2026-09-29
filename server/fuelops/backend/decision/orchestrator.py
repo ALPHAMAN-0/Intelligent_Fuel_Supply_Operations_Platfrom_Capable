@@ -82,6 +82,7 @@ class Orchestrator:
         self.fallback_active = False
         self.fallback_reason: str | None = None
         self.cycles = 0
+        self._store_healthy = True
 
     # ------------------------------------------------------------ restore
 
@@ -126,10 +127,24 @@ class Orchestrator:
         else:
             await self.alerts.clear_system("simulator_api")
         if not self.store.ok:
+            self._store_healthy = False
             await self.alerts.raise_system("database", "warning",
                                            f"Database unavailable ({self.store.last_error}): running from memory")
         else:
+            if not self._store_healthy:
+                await self._replay_to_store(state.run_id)
+                self._store_healthy = True
             await self.alerts.clear_system("database")
+
+    async def _replay_to_store(self, run_id: int) -> None:
+        """Write back what was decided from memory while the store was down (the restore window of load_recent)."""
+        plans = [p for p in self.plans.values() if p.run_id == run_id][-200:]
+        decisions = [d for d in self.decisions if d.run_id == run_id][-1000:]
+        for plan in plans:
+            await self.store.upsert_plan(plan)
+        for decision in decisions:
+            await self.store.add_decision(decision)
+        log.info("recovery.store_replayed", run=run_id, plans=len(plans), decisions=len(decisions))
 
     # ---------------------------------------------------------------- cycle
 

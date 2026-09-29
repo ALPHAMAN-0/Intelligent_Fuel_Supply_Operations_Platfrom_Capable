@@ -143,17 +143,24 @@ def drill_simulator_unavailable() -> Drill:
 
 
 def drill_stream_disconnect() -> Drill:
-    d = Drill("SSE stream disconnect (20 s)", "chaos fault `stream_disconnect`: GET /v1/stream returns 503",
-              "switch to polling, keep syncing, reconnect when the stream is back")
-    call("POST", "/api/chaos/faults", {"type": "stream_disconnect", "duration_seconds": 20}, auth=True)
+    d = Drill("SSE stream unavailable (45 s) across a backend restart",
+              "chaos fault `stream_disconnect` (GET /v1/stream returns 503), then `docker compose restart backend` "
+              "so the backend has to (re)connect while the stream is down",
+              "polling fallback keeps the state in sync; the stream reconnects by itself once it is back")
+    # The fault only refuses new stream connections, so force one by restarting the backend while it is active.
+    call("POST", "/api/chaos/faults", {"type": "stream_disconnect", "duration_seconds": 45}, auth=True)
+    compose("restart", "backend")
+    d.check("backend back", wait_for(lambda: state() is not None, 120) is not None)
+    t_poll = wait_for(lambda: component("event_stream")["status"] != "ok", 20)
+    d.check("stream loss detected (polling fallback)", t_poll is not None,
+            f"{component('event_stream')['status']}: {component('event_stream')['detail']}")
     tick0 = state()["world"]["instance"]["tick"]
-    t_poll = wait_for(lambda: component("event_stream")["status"] != "ok", 30)
-    d.check("stream loss detected", t_poll is not None, f"after {t_poll} s: {component('event_stream')['detail']}")
-    time.sleep(5)
-    d.check("ticks keep syncing by polling", state()["world"]["instance"]["tick"] > tick0,
-            f"tick {tick0} -> {state()['world']['instance']['tick']}")
-    t_back = wait_for(lambda: component("event_stream")["status"] == "ok")
-    d.check("stream reconnected", t_back is not None, f"after {t_back} s: {component('event_stream')['detail']}")
+    time.sleep(6)
+    tick1 = state()["world"]["instance"]["tick"]
+    d.check("ticks keep syncing by polling", tick1 > tick0, f"tick {tick0} -> {tick1} in 6 s")
+    t_back = wait_for(lambda: component("event_stream")["status"] == "ok", 120)
+    d.check("stream reconnected after the fault expired", t_back is not None,
+            f"after {t_back} s: {component('event_stream')['detail']}")
     return d
 
 

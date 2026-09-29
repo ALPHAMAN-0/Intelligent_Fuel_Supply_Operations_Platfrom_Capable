@@ -14,6 +14,7 @@ from fuelops.backend.integration.breaker import BreakerState, CircuitBreaker
 from fuelops.backend.integration.sim_client import SimClient
 from fuelops.backend.integration.sim_errors import SimError
 from fuelops.backend.main import create_app
+from fuelops.backend.state.store import Store
 from tests.stack import TOKEN
 
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
@@ -160,6 +161,29 @@ async def test_rejected_operator_requests_are_counted(stack, headers, reason):
         r = await client.get("/api/auth/verify", headers=headers)
     assert r.status_code == 401
     assert rejected() == before + 1
+
+
+# ------------------------------------------------------------------ database outage (found by the live drill)
+
+
+async def test_plans_and_decisions_made_during_a_database_outage_are_written_once_it_returns(stack_factory):
+    s = await stack_factory(operating_mode="auto")
+    for sid in ("station-mirpur", "station-tongi"):
+        _drain(s, sid)
+    await s.step(2)
+    store, orch = s.container.store, s.container.orchestrator
+    run = s.container.cache.run_id
+
+    store.force_fault(True)
+    await s.step(3)                                   # the loop keeps deciding from memory
+    during = {p.id for p in orch.plans.values() if p.run_id == run}
+    decisions = {d.id for d in orch.decisions if d.run_id == run}
+    store.force_fault(False)
+    await s.step(1)                                   # store healthy again
+
+    restored = await Store(store.path).load_recent()  # what a restarted backend would see
+    assert during <= {p.id for p in restored["plans"]}
+    assert decisions <= {d.id for d in restored["decisions"]}
 
 
 # ------------------------------------------------------------------ circuit breaker recovery (found by the live drill)

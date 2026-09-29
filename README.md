@@ -91,63 +91,57 @@ flowchart LR
 Six containers. `backend` and `intelligence` are **one Python image** started with two commands, so the
 "ML service unavailable → fallback" case is a real process boundary.
 
+### 3.1 Containers
+
 ```mermaid
 flowchart LR
   OP(["Operator<br/>browser"])
-
-  subgraph SIM["simulator :8000 · organizer image, unmodified"]
-    REST["/v1 REST"]
-    SSE["/v1/stream SSE"]
-    ADMIN["/admin"]
-  end
-
-  subgraph BE["backend :8080 · FastAPI"]
-    CLIENT["Sim client<br/>timeouts · retries · breakers<br/>validation · stale flag"]
-    LISTEN["SSE listener<br/>reconnect · watchdog<br/>polling fallback"]
-    SYNC["State sync<br/>run epochs on reset"]
-    CACHE[("World-state<br/>cache")]
-    DB[("SQLite<br/>backend-data volume")]
-    ORCH["Decision orchestrator<br/>plans · mode gate"]
-    HEUR["Heuristic<br/>fallback policy"]
-    ACT["Actuator<br/>preflight · idempotency keys"]
-    DET["Detectors<br/>alerts · incidents"]
-    EXP["Explainer<br/>Claude or templates"]
-    API["Operator API /api<br/>SSE /api/stream<br/>static console"]
-    CHAOS["Chaos proxy<br/>token-gated"]
-  end
-
-  subgraph INT["intelligence :8090 · FastAPI"]
-    FC["Demand forecaster"]
-    RISK["Risk scorer"]
-    LP["Rolling-horizon LP<br/>PuLP + CBC"]
-    WI["What-if evaluator"]
-  end
-
-  CLAUDE(["Claude API<br/>optional"])
+  BE["backend :8080<br/>operator API + console<br/>sync · detectors · decisions · actuator"]
+  INT["intelligence :8090<br/>forecast · risk<br/>LP planner · what-if"]
+  SIM["simulator :8000<br/>organizer image<br/>unmodified"]
+  DB[("SQLite<br/>backend-data volume")]
+  CL(["Claude API<br/>optional"])
   PROM["Prometheus :9090<br/>9 alert rules"]
-  GRAF["Grafana :3001"]
+  GRAF["Grafana :3001<br/>FuelOps dashboard"]
 
-  SSE -- "hints" --> LISTEN --> SYNC
-  SYNC --> CLIENT
-  CLIENT <-->|"REST is the source of truth"| REST
-  SYNC --> CACHE
-  SYNC --> DB
-  SYNC --> ORCH
-  ORCH -->|"/cycle · /evaluate"| INT
-  ORCH -.->|"down or slow"| HEUR
-  ORCH --> ACT --> CLIENT
-  ORCH --> DET
-  ORCH -.->|"async"| EXP -.-> CLAUDE
-  DET --> DB
-  ORCH --> DB
-  CACHE --> API
-  DB --> API
-  OP <--> API
-  API --> CHAOS --> ADMIN
-  BE -.->|"/metrics"| PROM
-  INT -.->|"/metrics"| PROM
-  PROM --> GRAF
+  OP <-->|"HTTP + SSE"| BE
+  OP --> GRAF
+  BE <-->|"REST reads · SSE hints<br/>POST /v1/allocations"| SIM
+  BE <-->|"/cycle · /evaluate<br/>3 s timeout"| INT
+  BE --- DB
+  BE -.->|"explanations"| CL
+  PROM -.->|"scrape /metrics"| BE
+  PROM -.->|"scrape /metrics"| INT
+  GRAF --> PROM
 ```
+
+### 3.2 Inside the backend
+
+```mermaid
+flowchart LR
+  SSE(["simulator<br/>/v1/stream"]) -->|"hints"| LISTEN["SSE listener<br/>reconnect · watchdog<br/>polling fallback"]
+  LISTEN --> SYNC["State sync<br/>run epochs on reset"]
+  SYNC <--> CLIENT["Sim client<br/>retries · breakers<br/>validation · stale flag"]
+  CLIENT <-->|"REST"| REST(["simulator<br/>/v1 REST"])
+  SYNC --> STORE[("World-state cache<br/>+ SQLite mirror")]
+  SYNC --> ORCH["Decision orchestrator<br/>one plan per tick<br/>mode gate"]
+  ORCH <-->|"/cycle"| INT(["intelligence<br/>service"])
+  ORCH -.->|"down or slow"| HEUR["Heuristic<br/>fallback"]
+  ORCH --> DET["Detectors<br/>alerts · incidents"]
+  ORCH --> ACT["Actuator<br/>preflight · idempotency keys"]
+  ACT --> CLIENT
+  ORCH -.->|"async"| EXP["Explainer<br/>Claude or templates"]
+  DET --> STORE
+  ORCH --> STORE
+  STORE --> API["Operator API<br/>/api · /api/stream"]
+  API <--> UI(["Operator<br/>console"])
+```
+
+The sim client is the only path to the simulator: reads go through the cache, and the actuator is the only component
+that writes (`POST /v1/allocations`). The operator API never calls the simulator directly, except for the
+token-gated chaos proxy to `/admin`.
+
+### 3.3 Layers and services
 
 | Layer (brief deliverable #6) | Components |
 |---|---|
