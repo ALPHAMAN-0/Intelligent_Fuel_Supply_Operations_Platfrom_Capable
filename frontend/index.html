@@ -7,14 +7,18 @@
         content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
   <title>FuelOps · Operator console</title>
+  <meta name="color-scheme" content="dark light">
+  <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/app.css">
   <script type="module" src="js/console-page.js"></script>
 </head>
 <body>
   <div id="app" class="app">
-    <p class="badge">SIMULATED DATA</p>
-    <p>Loading the operator console…</p>
-    <noscript><p>The operator console needs JavaScript.</p></noscript>
+    <div class="boot">
+      <p class="badge">SIMULATED DATA</p>
+      <p>Loading the operator console…</p>
+      <noscript><p>The operator console needs JavaScript.</p></noscript>
+    </div>
   </div>
 </body>
 </html>

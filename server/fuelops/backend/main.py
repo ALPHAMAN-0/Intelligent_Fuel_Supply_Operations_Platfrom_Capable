@@ -54,6 +54,10 @@ def create_app(settings: Settings | None = None, container: Container | None = N
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'")
+        if not request.url.path.startswith("/api/"):
+            # Static console files: revalidate every load (cheap 304 via ETag) so an upgrade is never masked by a
+            # heuristically cached old build or a cached 404.
+            response.headers.setdefault("Cache-Control", "no-cache")
         return response
 
     @app.get("/metrics", include_in_schema=False)

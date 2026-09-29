@@ -4,6 +4,7 @@ failed-auth accounting and chaos audit."""
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import httpx
 import pytest
@@ -18,6 +19,7 @@ from fuelops.backend.state.store import Store
 from tests.stack import TOKEN
 
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 
 def _drain(stack, station_id: str, level: float = 1500.0) -> None:
@@ -146,6 +148,16 @@ async def test_security_headers_on_api_and_static_responses(stack, path):
     assert r.headers["x-frame-options"] == "DENY"
     assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
     assert r.headers["referrer-policy"] == "no-referrer"
+
+
+@pytest.mark.parametrize("path", ["/login.html", "/js/login.js", "/css/login.css", "/does-not-exist.css"])
+async def test_static_console_files_are_revalidated_on_every_load(stack, path):
+    """After an upgrade the browser must not keep serving a cached console (or a cached 404) from a previous build."""
+    settings = stack.container.settings.model_copy(update={"static_dir": str(FRONTEND_DIR)})
+    app = create_app(settings, stack.container, background=False)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://backend") as client:
+        r = await client.get(path)
+    assert r.headers["cache-control"] == "no-cache"
 
 
 @pytest.mark.parametrize("headers,reason", [
