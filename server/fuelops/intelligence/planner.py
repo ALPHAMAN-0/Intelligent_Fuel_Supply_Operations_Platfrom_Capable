@@ -271,12 +271,12 @@ def plan(
     result.projected_unmet_before = round(series_unmet(state, fc, {}, H), 1)
     result.projected_unmet_after = round(unmet_after, 1)
 
-    used: dict[str, float] = defaultdict(float)
-    for r, _f, qty, _parts, _k in chosen:
-        used[r.source_depot_id] += qty
+    used: dict[str, float] = defaultdict(float)  # LP solution before rounding
+    for (rid, _f), q in model.now_shipments().items():
+        used[idx.routes[rid].source_depot_id] += q
     for d in state.depots:
         limit = d.dispatch_capacity_per_tick - model.committed.get(d.id, 0.0)
-        if limit > 0 and used[d.id] >= limit - UNIT - 1:
+        if limit > 0 and used[d.id] >= limit - 1:
             result.binding_constraints.append(
                 f"Dispatch capacity binding at {d.id}: {used[d.id]:.0f} of {limit:.0f} L available this tick")
         for f in spec.FUELS:

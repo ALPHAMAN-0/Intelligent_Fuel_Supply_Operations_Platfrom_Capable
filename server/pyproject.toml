@@ -42,6 +42,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
   "integration: needs a running simulator at SIM_BASE_URL (deselected by default)",
+  "req(*ids): requirement ids from plan.json covered by the test (used by the QA catalog)",
 ]
 addopts = "-m 'not integration'"
 

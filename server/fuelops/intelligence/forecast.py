@@ -20,7 +20,8 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from fuelops.shared import spec
-from fuelops.shared.models import DemandPoint, ModelInfo, SeriesForecast, WorldState
+from fuelops.shared.models import DemandPoint, HourStats, ModelInfo, SeriesForecast, WorldState
+from fuelops.shared.stats import history_stats
 from fuelops.shared.world import WorldIndex, demand_multiplier_at, hour_at
 
 
@@ -112,53 +113,55 @@ class StructuralForecaster:
         # Liters per hour = per-tick prior for a 60-minute tick.
         return [spec.prior_per_tick(st.demand_profile, fuel, h, 60, region) for h in range(24)]
 
-    def fit(self, state: WorldState, history: list[DemandPoint]) -> FittedModel:
+    def fit(self, state: WorldState, history: list[DemandPoint] | None = None,
+            stats: list[HourStats] | None = None) -> FittedModel:
+        """Fit from sufficient statistics (preferred: tiny payload) or from raw history."""
         idx = WorldIndex(state)
         tick_hours = state.instance.tick_minutes / 60.0
         ticks_per_day = max(1, int(round(24 / tick_hours)))
         p = self.params
-
-        grouped: dict[tuple[str, str], list[tuple[int, float]]] = defaultdict(list)
-        for obs in history:
-            if obs.station_id not in idx.stations:
-                continue
-            rate = obs.demand / tick_hours / max(obs.multiplier, 0.01)
-            grouped[(obs.station_id, obs.fuel_type)].append((obs.sim_time.hour, rate))
+        if not stats and history:
+            stats = history_stats(history, state.instance.tick_minutes)
+        by_series: dict[tuple[str, str], dict[int, HourStats]] = defaultdict(dict)
+        for s in stats or []:
+            by_series[(s.station_id, s.fuel_type)][s.hour] = s
 
         fitted = FittedModel(params=p)
         for st in state.stations:
             base_noise = spec.noise(st.demand_profile)
             for fuel in spec.FUELS:
                 prior = self._prior_rates(state, idx, st.id, fuel)
-                obs = grouped.get((st.id, fuel), [])
-                n = len(obs)
+                hours = by_series.get((st.id, fuel), {})
+                n = sum(h.n for h in hours.values())
                 prior_mean = sum(prior) / 24 if prior else 0.0
                 if n and prior_mean > 0:
-                    sum_v = sum(v for _, v in obs)
-                    sum_p = sum(prior[h] for h, _ in obs)
+                    sum_v = sum(h.sum_rate for h in hours.values())
+                    sum_p = sum(prior[h.hour] * h.n for h in hours.values())
                     scale = (sum_v + p.scale_strength * prior_mean) / (sum_p + p.scale_strength * prior_mean)
                 else:
                     scale = 1.0
 
-                by_hour: dict[int, list[float]] = defaultdict(list)
-                for h, v in obs:
-                    by_hour[h].append(v)
                 rates = []
                 for h in range(24):
-                    vals = by_hour.get(h, [])
-                    nh = len(vals)
+                    hs = hours.get(h)
+                    nh, sv = (hs.n, hs.sum_rate) if hs else (0, 0.0)
                     prior_h = scale * prior[h]
-                    rates.append((sum(vals) + p.prior_strength * prior_h) / (nh + p.prior_strength)
-                                 if (nh + p.prior_strength) > 0 else prior_h)
+                    denom = nh + p.prior_strength
+                    rates.append((sv + p.prior_strength * prior_h) / denom if denom > 0 else prior_h)
 
-                residuals = [v / rates[h] - 1.0 for h, v in obs if rates[h] > 1e-9]
-                if residuals:
-                    mean_r = sum(residuals) / len(residuals)
-                    var = sum((r - mean_r) ** 2 for r in residuals) / max(1, len(residuals) - 1)
-                else:
-                    var = 0.0
-                k = math.sqrt((len(residuals) * var + p.noise_strength * base_noise**2)
-                              / (len(residuals) + p.noise_strength))
+                # Residual r = v / rate[h] - 1; sums per hour give sum(r) and sum(r^2) without raw points.
+                sum_r = sum_r2 = 0.0
+                n_r = 0
+                for hs in hours.values():
+                    L = rates[hs.hour]
+                    if L <= 1e-9 or hs.n == 0:
+                        continue
+                    sum_r += hs.sum_rate / L - hs.n
+                    sum_r2 += hs.sum_rate_sq / L**2 - 2 * hs.sum_rate / L + hs.n
+                    n_r += hs.n
+                var = max(0.0, (sum_r2 - sum_r**2 / n_r) / max(1, n_r - 1)) if n_r > 1 else 0.0
+                k = math.sqrt((n_r * var + p.noise_strength * base_noise**2) / (n_r + p.noise_strength)) \
+                    if (n_r + p.noise_strength) > 0 else base_noise
                 source = "learned" if n >= ticks_per_day else ("prior+data" if n else "prior")
                 fitted.series[(st.id, fuel)] = SeriesModel(rates=rates, noise=k, n_obs=n, source=source)
         return fitted

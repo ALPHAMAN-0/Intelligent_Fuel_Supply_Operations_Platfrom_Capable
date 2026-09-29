@@ -48,6 +48,17 @@ class DemandPoint(BaseModel):
     multiplier: float = 1.0
 
 
+class HourStats(BaseModel):
+    """Sufficient statistics of demand rate (liters/hour, multiplier removed) for one (station, fuel, hour)."""
+
+    station_id: str
+    fuel_type: Fuel
+    hour: int = Field(ge=0, le=23)
+    n: int = Field(ge=0)
+    sum_rate: float
+    sum_rate_sq: float
+
+
 class PlannerParams(BaseModel):
     horizon_ticks: int = Field(default=24, ge=4, le=96)
     risk_horizon_ticks: int = Field(default=96, ge=4, le=192)
@@ -157,6 +168,7 @@ class ModelInfo(BaseModel):
 class CycleRequest(BaseModel):
     state: WorldState
     history: list[DemandPoint] = Field(default_factory=list)
+    stats: list[HourStats] = Field(default_factory=list)
     params: PlannerParams = Field(default_factory=PlannerParams)
 
 
@@ -177,6 +189,7 @@ class FixedLine(BaseModel):
 class EvaluateRequest(BaseModel):
     state: WorldState
     history: list[DemandPoint] = Field(default_factory=list)
+    stats: list[HourStats] = Field(default_factory=list)
     lines: list[FixedLine] = Field(default_factory=list)
     params: PlannerParams = Field(default_factory=PlannerParams)
 
@@ -200,4 +213,5 @@ class EvaluateResponse(BaseModel):
 class ForecastRequest(BaseModel):
     state: WorldState
     history: list[DemandPoint] = Field(default_factory=list)
+    stats: list[HourStats] = Field(default_factory=list)
     horizon_ticks: int = Field(default=24, ge=1, le=192)

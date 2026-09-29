@@ -13,7 +13,7 @@ from fuelops import __version__
 from fuelops.intelligence.evaluate import evaluate
 from fuelops.intelligence.forecast import FittedModel, StructuralForecaster, load_params
 from fuelops.intelligence.planner import plan
-from fuelops.intelligence.risk import score_risks
+from fuelops.shared.risk import score_risks
 from fuelops.shared.config import get_settings
 from fuelops.shared.logging import configure_logging, get_logger
 from fuelops.shared.metrics import PLANNER_SOLVE, MetricsMiddleware
@@ -37,7 +37,7 @@ class Engine:
         self.forecaster = StructuralForecaster(self.params)
 
     def fit(self, req) -> FittedModel:
-        return self.forecaster.fit(req.state, req.history)
+        return self.forecaster.fit(req.state, req.history, req.stats)
 
 
 def create_app(engine: Engine | None = None) -> FastAPI:
@@ -70,7 +70,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
 
     @app.post("/forecast", response_model=list[SeriesForecast])
     async def forecast(req: ForecastRequest):
-        model = get_engine().forecaster.fit(req.state, req.history)
+        model = get_engine().fit(req)
         return model.series_forecasts(req.state, req.horizon_ticks)
 
     @app.post("/cycle", response_model=CycleResponse)

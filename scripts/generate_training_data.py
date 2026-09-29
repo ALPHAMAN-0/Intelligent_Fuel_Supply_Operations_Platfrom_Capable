@@ -163,6 +163,23 @@ def read_multipliers(sim: Simulator) -> dict[str, float]:
     return {s["id"]: float(s["demand_multiplier"]) for s in sim.get("/v1/stations")}
 
 
+def covers(event: dict[str, Any], station: dict[str, Any]) -> bool:
+    """station_ids / region_ids are filters; an empty or missing list matches every station."""
+    params = event.get("parameters") or {}
+    station_ids = params.get("station_ids") or []
+    region_ids = params.get("region_ids") or []
+    return (not station_ids or station["id"] in station_ids) and (not region_ids or station["region_id"] in region_ids)
+
+
+def applied_multiplier(initial: float, events: list[dict[str, Any]], station: dict[str, Any], row_tick: int) -> float:
+    """demand_multiplier that produced the row labelled row_tick (spikes cover start_tick..end_tick inclusive)."""
+    multiplier = initial
+    for event in events:
+        if event["start_tick"] <= row_tick <= event["end_tick"] and covers(event, station):
+            multiplier *= float(event["parameters"].get("multiplier", 1.5))
+    return multiplier
+
+
 def validate_row(row: dict[str, Any], station_ids: set[str]) -> None:
     missing = [k for k in ("id", "station_id", "fuel_type", "tick", "sim_time", *DEMAND_FIELDS) if k not in row]
     if missing:
@@ -179,7 +196,11 @@ def confirm_reset(base_url: str) -> bool:
     if not sys.stdin.isatty():
         print("Refusing to reset without a terminal to confirm. Pass --yes to skip the prompt.")
         return False
-    answer = input(f"This will RESET the simulator at {base_url} (all its state is wiped). Continue? [y/N] ")
+    try:
+        answer = input(f"This will RESET the simulator at {base_url} (all its state is wiped). Continue? [y/N] ")
+    except EOFError:  # e.g. stdin is NUL on Windows, which still reports isatty()
+        print("\nNo answer on stdin. Pass --yes to skip the prompt.")
+        return False
     return answer.strip().lower() in ("y", "yes")
 
 
@@ -196,7 +217,7 @@ def schedule_spikes(sim: Simulator, start_tick: int, ticks_per_hour: float, tota
             "duration_ticks": duration,
             "parameters": spike["parameters"],
         }
-        events.append(sim.post("/admin/events", body) or body)
+        events.append(sim.post("/admin/events", body) or {**body, "end_tick": start + duration})
     return events
 
 
@@ -233,7 +254,8 @@ def run(args: argparse.Namespace) -> int:
         # Rows that already exist (none after a clean reset) are not part of this run.
         seen_ids = {int(r["id"]) for r in sim.get("/v1/demand-history", limit=2000)}
         rows: list[dict[str, Any]] = []
-        before = read_multipliers(sim)
+        initial = before = read_multipliers(sim)
+        multiplier_mismatches = 0
         previous_tick: int | None = None
         started = time.monotonic()
 
@@ -254,15 +276,20 @@ def run(args: argparse.Namespace) -> int:
             for row in new_rows:
                 validate_row(row, set(stations))
                 seen_ids.add(int(row["id"]))
-                station = stations[row["station_id"]]
+                sid = row["station_id"]
+                station = stations[sid]
+                multiplier = applied_multiplier(initial[sid], events, station, int(row["tick"]))
+                # Between steps the snapshot is either pre-activation or post-resolution, so on a spike edge the
+                # applied multiplier equals one of them; anything else means the event model above is wrong.
+                if not any(math.isclose(multiplier, snap[sid], rel_tol=1e-9) for snap in (before, after)):
+                    multiplier_mismatches += 1
                 rows.append(
                     {
                         **{k: row[k] for k in ("id", "tick", "sim_time", "station_id", "fuel_type", *DEMAND_FIELDS)},
                         "step_tick": step_tick,
                         "region_id": station["region_id"],
                         "demand_profile": station["demand_profile"],
-                        "multiplier_before": before[row["station_id"]],
-                        "multiplier_after": after[row["station_id"]],
+                        "demand_multiplier": multiplier,
                     }
                 )
             before = after
@@ -271,7 +298,9 @@ def run(args: argparse.Namespace) -> int:
                 print(f"  day {i / (24 * ticks_per_hour):.0f}: tick {step_tick}, {len(rows)} rows")
 
         final_tick = int(sim.get("/v1/instance")["tick"])
-        checks = run_checks(rows, total_ticks, rows_per_tick, final_tick, start_tick + total_ticks)
+        checks = run_checks(
+            rows, total_ticks, rows_per_tick, final_tick, start_tick + total_ticks, multiplier_mismatches
+        )
         write_outputs(args.out, rows, instance, stations, events, checks, args, final_tick)
         print(f"Done in {time.monotonic() - started:.0f}s. The simulator is left PAUSED at tick {final_tick}.")
         return 0 if checks["passed"] else 2
@@ -283,7 +312,12 @@ def run(args: argparse.Namespace) -> int:
 
 
 def run_checks(
-    rows: list[dict[str, Any]], total_ticks: int, rows_per_tick: int, final_tick: int, expected_final_tick: int
+    rows: list[dict[str, Any]],
+    total_ticks: int,
+    rows_per_tick: int,
+    final_tick: int,
+    expected_final_tick: int,
+    multiplier_mismatches: int,
 ) -> dict[str, Any]:
     balance_errors = sum(
         1
@@ -295,15 +329,19 @@ def run_checks(
         "rows_expected": total_ticks * rows_per_tick,
         "final_tick": final_tick,
         "final_tick_expected": expected_final_tick,
-        # Offset between a row's own `tick` field and the tick /admin/step returned; tells training code
-        # which multiplier (before/after the step) applies to a row.
+        # Offset between a row's own `tick` field and the tick /admin/step returned (expected: [-1]).
         "row_tick_minus_step_tick": sorted({int(r["tick"]) - int(r["step_tick"]) for r in rows}),
+        "demand_multiplier_mismatches": multiplier_mismatches,
         "demand_ne_served_plus_unmet": balance_errors,
         "rows_with_zero_demand": sum(1 for r in rows if r["demand_liters"] == 0),
         "rows_with_stockout": sum(1 for r in rows if r["served_liters"] == 0 and r["demand_liters"] > 0),
-        "max_multiplier": max((r["multiplier_after"] for r in rows), default=None),
+        "max_multiplier": max((r["demand_multiplier"] for r in rows), default=None),
     }
-    checks["passed"] = checks["rows"] == checks["rows_expected"] and final_tick == expected_final_tick
+    checks["passed"] = (
+        checks["rows"] == checks["rows_expected"] and final_tick == expected_final_tick and multiplier_mismatches == 0
+    )
+    if multiplier_mismatches:
+        print(f"  ERROR: {multiplier_mismatches} rows where demand_multiplier matches neither station snapshot")
     for key in ("demand_ne_served_plus_unmet", "rows_with_zero_demand"):
         if checks[key]:
             print(f"  WARNING: {key} = {checks[key]} (see docs/model-selection.md forecast contract)")
