@@ -14,16 +14,14 @@ from collections import defaultdict
 import pulp
 
 from fuelops.shared import spec
-from fuelops.shared.models import Alternative, PlannerParams, PlanLine, PlanResult, RiskSnapshot, WorldState
+from fuelops.shared.models import Alternative, PlannerParams, PlanLine, PlanResult, WorldState
+from fuelops.shared.risk import risk_snapshot, series_unmet
 from fuelops.shared.world import (
     WorldIndex,
     committed_dispatch,
     event_hits,
     event_hits_station,
-    hours_to_ticks,
     in_transit_arrivals,
-    p_stockout,
-    project_series,
     relative_arrivals,
     route_available_at,
     route_usable,
@@ -175,37 +173,6 @@ class _Model:
         return out
 
 
-def _snapshot(state: WorldState, st, fuel: str, fc: Forecasts, arr: dict[int, float], horizon: int) -> RiskSnapshot:
-    mu, sigma = fc[(st.id, fuel)]
-    t0 = state.instance.tick
-    on_hand, cap = st.inventory.get(fuel, 0.0), st.capacity.get(fuel, 0.0)
-    open_at = [station_open_at(state, st, t0 + k) for k in range(1, len(mu) + 1)]
-    _, _, first = project_series(on_hand, cap, mu, arr, open_at)
-    _, unmet_h, _ = project_series(on_hand, cap, mu[:horizon], arr, open_at[:horizon])
-    p12 = 1.0 if st.status != "OPEN" else p_stockout(on_hand, mu, sigma, arr, hours_to_ticks(state, 12))
-    return RiskSnapshot(p_stockout_12h=round(p12, 4),
-                        hours_to_stockout=round(ticks_to_hours(state, first), 2) if first else None,
-                        projected_unmet_liters=round(unmet_h, 1))
-
-
-def series_unmet(state: WorldState, fc: Forecasts, extra: dict[tuple[str, str], dict[int, float]], horizon: int) -> float:
-    """Total projected unmet liters over the horizon (mean demand) with extra relative arrivals."""
-    t0 = state.instance.tick
-    arrivals = in_transit_arrivals(state)
-    total = 0.0
-    for st in state.stations:
-        for f in spec.FUELS:
-            if (st.id, f) not in fc:
-                continue
-            mu = fc[(st.id, f)][0][:horizon]
-            arr = dict(relative_arrivals(arrivals.get((st.id, f), {}), t0))
-            for k, q in extra.get((st.id, f), {}).items():
-                arr[k] = arr.get(k, 0.0) + q
-            open_at = [station_open_at(state, st, t0 + k) for k in range(1, len(mu) + 1)]
-            total += project_series(st.inventory.get(f, 0.0), st.capacity.get(f, 0.0), mu, arr, open_at)[1]
-    return total
-
-
 def _signals(state: WorldState, idx: WorldIndex, route, st, fuel: str, before: RiskSnapshot, demand_h: float,
              cover_h: float, in_transit: float) -> list[str]:
     signals = []
@@ -298,8 +265,8 @@ def plan(
         with_arr = dict(base_arr)
         for k, q in extra[(st.id, f)].items():
             with_arr[k] = with_arr.get(k, 0.0) + q
-        before = _snapshot(state, st, f, fc, base_arr, H)
-        after = _snapshot(state, st, f, fc, with_arr, H)
+        before = risk_snapshot(state, st, f, fc, base_arr, H)
+        after = risk_snapshot(state, st, f, fc, with_arr, H)
         mu = fc[(st.id, f)][0]
         cover_h = ticks_to_hours(state, min(H, len(mu)))
         demand_h = sum(mu[:H])

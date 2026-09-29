@@ -6,10 +6,10 @@ from collections import defaultdict
 
 import pytest
 
-from fuelops.intelligence.evaluate import evaluate
 from fuelops.intelligence.forecast import StructuralForecaster
 from fuelops.intelligence.planner import plan, split_parts
 from fuelops.shared.models import FixedLine, PlannerParams
+from fuelops.shared.risk import evaluate
 from tests.factories import add_allocation, add_event, depot, make_world, route, station
 
 pytestmark = pytest.mark.req("R-INT-X1", "R-CAP-03", "R-INT-01")

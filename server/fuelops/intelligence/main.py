@@ -10,10 +10,9 @@ from fastapi.responses import Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from fuelops import __version__
-from fuelops.intelligence.evaluate import evaluate
 from fuelops.intelligence.forecast import FittedModel, StructuralForecaster, load_params
 from fuelops.intelligence.planner import plan
-from fuelops.shared.risk import score_risks
+from fuelops.shared.risk import evaluate, score_risks
 from fuelops.shared.config import get_settings
 from fuelops.shared.logging import configure_logging, get_logger
 from fuelops.shared.metrics import PLANNER_SOLVE, MetricsMiddleware

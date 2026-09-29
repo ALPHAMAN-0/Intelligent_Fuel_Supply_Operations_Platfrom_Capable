@@ -1,9 +1,20 @@
-"""Risk scoring: inventory position, time-to-stockout, P(stockout) at 4/12/24 h, confidence."""
+"""Risk scoring and projections: inventory position, time-to-stockout, P(stockout) at 4/12/24 h, confidence,
+projected unmet demand and the what-if evaluator. Pure functions shared by the planner and the heuristic fallback.
+"""
 
 from __future__ import annotations
 
+from collections import defaultdict
+
 from fuelops.shared import spec
-from fuelops.shared.models import RiskScore, WorldState
+from fuelops.shared.models import (
+    EvaluateResponse,
+    FixedLine,
+    RiskScore,
+    RiskSnapshot,
+    SeriesProjection,
+    WorldState,
+)
 from fuelops.shared.sim_models import STATION_OPEN
 from fuelops.shared.world import (
     LIVE_EVENT,
@@ -95,3 +106,76 @@ def score_risks(
                 notes=notes,
             ))
     return out
+
+
+# --------------------------------------------------------- projections / what-if
+
+
+def risk_snapshot(state: WorldState, st, fuel: str, fc: Forecasts, arr: dict[int, float], horizon: int) -> RiskSnapshot:
+    mu, sigma = fc[(st.id, fuel)]
+    t0 = state.instance.tick
+    on_hand, cap = st.inventory.get(fuel, 0.0), st.capacity.get(fuel, 0.0)
+    open_at = [station_open_at(state, st, t0 + k) for k in range(1, len(mu) + 1)]
+    _, _, first = project_series(on_hand, cap, mu, arr, open_at)
+    _, unmet_h, _ = project_series(on_hand, cap, mu[:horizon], arr, open_at[:horizon])
+    p12 = 1.0 if st.status != "OPEN" else p_stockout(on_hand, mu, sigma, arr, hours_to_ticks(state, 12))
+    return RiskSnapshot(p_stockout_12h=round(p12, 4),
+                        hours_to_stockout=round(ticks_to_hours(state, first), 2) if first else None,
+                        projected_unmet_liters=round(unmet_h, 1))
+
+
+def series_unmet(state: WorldState, fc: Forecasts, extra: dict[tuple[str, str], dict[int, float]], horizon: int) -> float:
+    """Total projected unmet liters over the horizon (mean demand) with extra relative arrivals."""
+    t0 = state.instance.tick
+    arrivals = in_transit_arrivals(state)
+    total = 0.0
+    for st in state.stations:
+        for f in spec.FUELS:
+            if (st.id, f) not in fc:
+                continue
+            mu = fc[(st.id, f)][0][:horizon]
+            arr = dict(relative_arrivals(arrivals.get((st.id, f), {}), t0))
+            for k, q in extra.get((st.id, f), {}).items():
+                arr[k] = arr.get(k, 0.0) + q
+            open_at = [station_open_at(state, st, t0 + k) for k in range(1, len(mu) + 1)]
+            total += project_series(st.inventory.get(f, 0.0), st.capacity.get(f, 0.0), mu, arr, open_at)[1]
+    return total
+
+
+def _project(state: WorldState, fc: Forecasts, extra: dict[tuple[str, str], dict[int, float]], horizon: int):
+    t0 = state.instance.tick
+    arrivals = in_transit_arrivals(state)
+    out: list[SeriesProjection] = []
+    total = 0.0
+    for st in state.stations:
+        for f in spec.FUELS:
+            if (st.id, f) not in fc:
+                continue
+            mu, sigma = fc[(st.id, f)]
+            mu, sigma = mu[:horizon], sigma[:horizon]
+            arr = dict(relative_arrivals(arrivals.get((st.id, f), {}), t0))
+            for k, q in extra.get((st.id, f), {}).items():
+                arr[k] = arr.get(k, 0.0) + q
+            open_at = [station_open_at(state, st, t0 + k) for k in range(1, len(mu) + 1)]
+            inv, unmet, first = project_series(st.inventory.get(f, 0.0), st.capacity.get(f, 0.0), mu, arr, open_at)
+            p12 = 1.0 if st.status != "OPEN" else p_stockout(st.inventory.get(f, 0.0), mu, sigma, arr,
+                                                             hours_to_ticks(state, 12))
+            total += unmet
+            out.append(SeriesProjection(station_id=st.id, fuel_type=f, inventory=[round(v, 1) for v in inv],
+                                        unmet_total=round(unmet, 1), stockout_tick=t0 + first if first else None,
+                                        p_stockout_12h=round(p12, 4)))
+    return out, total
+
+
+def evaluate(state: WorldState, fc: Forecasts, lines: list[FixedLine], horizon: int) -> EvaluateResponse:
+    idx = WorldIndex(state)
+    extra: dict[tuple[str, str], dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    for line in lines:
+        route = idx.routes.get(line.route_id)
+        if route is None:
+            raise ValueError(f"unknown route {line.route_id}")
+        extra[(route.destination_station_id, line.fuel_type)][route.transit_ticks + 1] += line.quantity
+    before, unmet_before = _project(state, fc, {}, horizon)
+    after, unmet_after = _project(state, fc, extra, horizon)
+    return EvaluateResponse(before=before, after=after, unmet_before=round(unmet_before, 1),
+                            unmet_after=round(unmet_after, 1))
