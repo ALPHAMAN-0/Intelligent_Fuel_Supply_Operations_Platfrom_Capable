@@ -20,15 +20,17 @@ from locust import HttpUser, LoadTestShape, between, events, task
 
 TOKEN = os.environ.get("OPERATOR_TOKEN", "")
 WRITE_WEIGHT = int(os.environ.get("LOAD_WRITE_WEIGHT", "1"))
+# 1 = realistic operator think time; 0 = saturation test (every user fires back-to-back) to find the limits.
+THINK = float(os.environ.get("LOAD_THINK_SCALE", "1"))
 STATIONS = ["station-mirpur", "station-tongi", "station-karnaphuli", "station-coxsbazar"]
 ROUTES: list[dict] = []
 
 
 @events.test_start.add_listener
 def discover_routes(environment, **_kwargs) -> None:
-    import httpx
+    import requests  # bundled with locust
 
-    state = httpx.get(f"{environment.host}/api/state", timeout=10).json()
+    state = requests.get(f"{environment.host}/api/state", timeout=10).json()
     ROUTES.extend(state["world"]["routes"])
 
 
@@ -36,7 +38,7 @@ class ConsoleViewer(HttpUser):
     """An operator with the console open: the SPA refreshes a handful of read endpoints every few seconds."""
 
     weight = 4
-    wait_time = between(1, 3)
+    wait_time = between(1 * THINK, 3 * THINK)
 
     @task(5)
     def state(self) -> None:
@@ -75,7 +77,7 @@ class DecisionMaker(HttpUser):
     """The decision path: what-if evaluations and operator-triggered decision cycles."""
 
     weight = WRITE_WEIGHT
-    wait_time = between(2, 5)
+    wait_time = between(2 * THINK, 5 * THINK)
 
     @task(3)
     def what_if(self) -> None:
@@ -100,23 +102,21 @@ class DecisionMaker(HttpUser):
                 r.success()  # single-flight: a cycle is already running
 
 
-class StepLoad(LoadTestShape):
-    """Hold each concurrency level long enough for stable percentiles."""
+# Locust uses any LoadTestShape defined in the module (and a tick() of None means "stop"), so the ramp only exists in
+# steps mode; with LOAD_SHAPE=constant the -u/-r/-t command-line options apply.
+if os.environ.get("LOAD_SHAPE", "steps") == "steps":
 
-    steps = [(10, 45), (25, 45), (50, 60), (100, 60)]  # (users, seconds)
-    spawn_rate = 10
+    class StepLoad(LoadTestShape):
+        """Hold each concurrency level long enough for stable percentiles."""
 
-    def tick(self):
-        if os.environ.get("LOAD_SHAPE", "steps") != "steps":
+        steps = [(10, 45), (25, 45), (50, 60), (100, 60)]  # (users, seconds)
+        spawn_rate = 10
+
+        def tick(self):
+            elapsed = self.get_run_time()
+            total = 0
+            for users, duration in self.steps:
+                total += duration
+                if elapsed < total:
+                    return users, self.spawn_rate
             return None
-        elapsed = self.get_run_time()
-        for users, until in self._cumulative():
-            if elapsed < until:
-                return users, self.spawn_rate
-        return None
-
-    def _cumulative(self):
-        total = 0
-        for users, duration in self.steps:
-            total += duration
-            yield users, total
