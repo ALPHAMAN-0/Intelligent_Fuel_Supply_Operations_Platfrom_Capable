@@ -2,7 +2,6 @@
   "schema_version": "1.0",
   "last_updated": "2026-09-29",
   "about": "Machine-readable progress tracker for the hackathon project. It holds the fixed main goal, every requirement from ProblemSet/, the simulator contract, and plan.md's iterations with task status. plan.md and architecture.md hold the reasoning; this file holds ids, links and status.",
-
   "project": {
     "name": "Fuel Supply Intelligence & Resilience Platform",
     "event": "BUP CSE Fest 2026 Hackathon Finals (in association with Poridhi.io)",
@@ -12,23 +11,18 @@
       "participant_brief": "ProblemSet/CamScanner 29-09-2026 08.41.pdf",
       "simulator_guide": "ProblemSet/BUP_Fuel_Supply_Simulator_Integration_Guide_Final.pdf"
     },
-    "docs": {
-      "plan": "plan.md",
-      "architecture": "architecture.md",
-      "claude": "CLAUDE.md",
-      "tracker": "plan.json"
-    },
+    "docs": {"plan": "plan.md", "architecture": "architecture.md", "claude": "CLAUDE.md", "tracker": "plan.json"},
     "stack": {
-      "backend": "Python 3.11 + FastAPI",
-      "intelligence": "Python 3.11 + FastAPI (pandas, LightGBM, OR-Tools)",
-      "frontend": "React + Vite + TypeScript",
-      "database": "Postgres",
-      "observability": "Prometheus + Grafana, structured JSON logs",
+      "backend": "Python 3.11 + FastAPI (server/fuelops/backend)",
+      "intelligence": "Python 3.11 + FastAPI, same project and image (server/fuelops/intelligence): pandas, OR-Tools GLOP",
+      "frontend": "React + Vite + TypeScript, five views",
+      "database": "Postgres (tables created at startup, no migrations)",
+      "observability": "Prometheus + one Grafana dashboard + 5 alert rules, structured JSON logs",
       "llm": "Claude API with deterministic template fallback",
-      "deployment": "docker compose; GitHub Actions CI/CD to GHCR"
-    }
+      "deployment": "docker compose; GitHub Actions CI (GHCR push is should)"
+    },
+    "build_window": {"hours": 24, "team_size": "2-3", "mvp_line_hour": 18, "feature_freeze_hour": 21}
   },
-
   "main_goal": {
     "immutable": true,
     "rule": "Do not change this section. Every iteration, task and scope change must trace back to it.",
@@ -38,15 +32,10 @@
     "success_formula": ["Useful Application", "Meaningful Intelligence", "Reliable Backend", "Deployment", "Observability", "Resilience", "Measured Performance"],
     "success_result": "Operational AI System",
     "motto": "Your job is not only to build the system. Your job is to keep it working.",
-    "not_the_goal": [
-      "Highest ML accuracy on its own",
-      "Building our own fuel-supply simulator",
-      "Complexity for its own sake"
-    ],
+    "not_the_goal": ["Highest ML accuracy on its own", "Building our own fuel-supply simulator", "Complexity for its own sake"],
     "scenario_chain": ["Import / Supply", "Port / Arrival", "Depot / Storage", "Distribution / Transport", "Fuel Stations", "Customer Demand"],
     "fuel_types": ["DIESEL", "PETROL", "OCTANE"]
   },
-
   "status_legend": {
     "todo": "Not started",
     "in_progress": "Being worked on",
@@ -54,227 +43,955 @@
     "done": "Every done_when item verified and evidence attached",
     "dropped": "Deliberately not done; put the reason in notes"
   },
-
   "iteration_process": {
-    "summary": "Each iteration is one phase from plan.md. Work them in dependency order and never skip verification.",
+    "summary": "Time-boxed vertical slices. Every iteration ends with a runnable, demoable system on main; later iterations deepen it.",
     "steps": [
-      {"step": 1, "name": "Select", "action": "Pick the first iteration whose depends_on are all done (or already in_progress)."},
-      {"step": 2, "name": "Grill", "action": "Run /grill-me on the iteration scope. Record every settled decision in decisions_log."},
-      {"step": 3, "name": "Start", "action": "Set the iteration and the task being worked on to in_progress."},
-      {"step": 4, "name": "Build", "action": "Implement the tasks with tests. Follow CLAUDE.md hard rules."},
-      {"step": 5, "name": "Verify", "action": "Check every done_when item against the running system. Add proof (file paths, PR links, screenshots, metrics) to evidence."},
-      {"step": 6, "name": "Close", "action": "Set tasks and the iteration to done. Answer any open_questions the iteration resolved."},
-      {"step": 7, "name": "Sync docs", "action": "If scope or design changed, update plan.md / architecture.md in the same commit, and update progress."}
+      {
+        "step": 1,
+        "name": "Select",
+        "action": "Take the current iteration (I1..I5 in order); within it, split tasks by lane (App / AI / DevOps) and work in parallel."
+      },
+      {
+        "step": 2,
+        "name": "Build thin, integrate early",
+        "action": "Get each task working end to end first, merge to main often; main must always run with docker compose up."
+      },
+      {
+        "step": 3,
+        "name": "Verify",
+        "action": "Check the iteration's done_when items against the running system; attach evidence (file paths, PR links, screenshots, metrics)."
+      },
+      {
+        "step": 4,
+        "name": "Close or cut",
+        "action": "At the end of the time box mark tasks done; unfinished should/could tasks are cut (status dropped with a note), never allowed to extend the box."
+      },
+      {
+        "step": 5,
+        "name": "Sync",
+        "action": "Update status/evidence here, answer resolved open_questions, and update plan.md / architecture.md if the design changed."
+      },
+      {
+        "step": 6,
+        "name": "Re-plan on surprise",
+        "action": "If organizers inject a surprise or a finding breaks an assumption, run a short /grill-me on the affected part and log the decision."
+      }
     ],
     "rules": [
       "main_goal is immutable.",
       "Every task lists the requirement ids it serves; do not add tasks that serve none.",
-      "Requirement status is derived: a requirement is met when all tasks in its covered_by are done.",
-      "Tasks marked priority could are only started after every must task in iterations P0-P9 is done.",
-      "Keep ids stable; never renumber. Add new ids at the end of a list."
+      "A requirement is met when all its covering tasks with priority must or should are done (could tasks do not count).",
+      "Hard time boxes: I1 0-6 h, I2 6-13 h, I3 13-18 h (MVP line), I4 18-21 h (feature freeze), I5 21-24 h.",
+      "Could tasks start only after every must task in I1-I5 is done.",
+      "Keep ids stable from now on; add new ids at the end of a list (the P0-P9 ids were retired by DEC-10)."
     ]
   },
-
   "evaluation_criteria": [
-    {"id": "EC-1", "name": "Working Product & User Experience", "weight": 20, "assessed": "Functional application, operational workflow, usability, completeness", "evidence": "End-to-end operator workflow in the console, human approval, live updates"},
-    {"id": "EC-2", "name": "Intelligence & Decision Quality", "weight": 20, "assessed": "Usefulness and quality of AI / ML / optimization / detection; appropriate methodology", "evidence": "Forecast error metrics, risk scores, detection alerts, explained LP recommendations, benchmark table"},
-    {"id": "EC-3", "name": "Architecture & Integration", "weight": 15, "assessed": "Backend engineering, simulator integration, component design, technical coherence", "evidence": "architecture.md, service boundaries, contract-first API, resilient simulator client"},
-    {"id": "EC-4", "name": "DevOps & Engineering Quality", "weight": 15, "assessed": "Deployment, automation, testing, maintainability, engineering practices", "evidence": "One-command deploy, CI/CD pipeline, tests, versioned images, rollback"},
-    {"id": "EC-5", "name": "Resilience & Incident Response", "weight": 10, "assessed": "Failure handling, crisis response, fallback behavior, recovery", "evidence": "Chaos scenarios showing detect, degrade and recover"},
-    {"id": "EC-6", "name": "Observability & Performance", "weight": 10, "assessed": "Monitoring, metrics, logs, health visibility, load testing", "evidence": "Grafana dashboards, alert rules, health board, load-test report"},
-    {"id": "EC-7", "name": "Demo & Problem Understanding", "weight": 10, "assessed": "Clear explanation, understanding of constraints, effective demonstration", "evidence": "Rehearsed 14-step demo, domain insights from plan.md section 1.3"}
+    {
+      "id": "EC-1",
+      "name": "Working Product & User Experience",
+      "weight": 20,
+      "assessed": "Functional application, operational workflow, usability, completeness",
+      "evidence": "End-to-end operator workflow in the console, human approval, live updates"
+    },
+    {
+      "id": "EC-2",
+      "name": "Intelligence & Decision Quality",
+      "weight": 20,
+      "assessed": "Usefulness and quality of AI / ML / optimization / detection; appropriate methodology",
+      "evidence": "Forecast error metrics, risk scores, detection alerts, explained LP recommendations, benchmark table"
+    },
+    {
+      "id": "EC-3",
+      "name": "Architecture & Integration",
+      "weight": 15,
+      "assessed": "Backend engineering, simulator integration, component design, technical coherence",
+      "evidence": "architecture.md, service boundaries, contract-first API, resilient simulator client"
+    },
+    {
+      "id": "EC-4",
+      "name": "DevOps & Engineering Quality",
+      "weight": 15,
+      "assessed": "Deployment, automation, testing, maintainability, engineering practices",
+      "evidence": "One-command deploy, CI/CD pipeline, tests, versioned images, rollback"
+    },
+    {
+      "id": "EC-5",
+      "name": "Resilience & Incident Response",
+      "weight": 10,
+      "assessed": "Failure handling, crisis response, fallback behavior, recovery",
+      "evidence": "Chaos scenarios showing detect, degrade and recover"
+    },
+    {
+      "id": "EC-6",
+      "name": "Observability & Performance",
+      "weight": 10,
+      "assessed": "Monitoring, metrics, logs, health visibility, load testing",
+      "evidence": "Grafana dashboards, alert rules, health board, load-test report"
+    },
+    {
+      "id": "EC-7",
+      "name": "Demo & Problem Understanding",
+      "weight": 10,
+      "assessed": "Clear explanation, understanding of constraints, effective demonstration",
+      "evidence": "Rehearsed 14-step demo, domain insights from plan.md section 1.3"
+    }
   ],
-
   "requirements": [
-    {"id": "R-CAP-01", "source": "brief §1", "priority": "must", "text": "Observe the current simulated fuel network", "covered_by": ["P1-T4", "P4-T1"]},
-    {"id": "R-CAP-02", "source": "brief §1", "priority": "must", "text": "Identify emerging shortages and operational risks", "covered_by": ["P2-T4", "P2-T5", "P2-T6"]},
-    {"id": "R-CAP-03", "source": "brief §1", "priority": "must", "text": "Help operators decide how constrained fuel should be allocated", "covered_by": ["P3-T1", "P3-T2", "P4-T4"]},
-    {"id": "R-CAP-04", "source": "brief §1", "priority": "must", "text": "Respond to unexpected disruptions", "covered_by": ["P2-T5", "P3-T2", "P7-T1"]},
-    {"id": "R-CAP-05", "source": "brief §1", "priority": "must", "text": "Expose the reasoning behind important recommendations", "covered_by": ["P3-T2", "P4-T4", "P5-T2"]},
-    {"id": "R-CAP-06", "source": "brief §1", "priority": "must", "text": "Remain observable and usable during application or service failures", "covered_by": ["P1-T2", "P1-T3", "P3-T7", "P6-T1", "P7-T2"]},
-    {"id": "R-CAP-07", "source": "brief §1", "priority": "must", "text": "Demonstrate measurable system performance under load", "covered_by": ["P8-T1", "P8-T2", "P8-T3"]},
-    {"id": "R-CAP-08", "source": "brief §1", "priority": "must", "text": "Operate entirely against the organizer's simulator; no real fuel infrastructure", "covered_by": ["P1-T2"]},
-
-    {"id": "R-LOOP-01", "source": "brief §2", "priority": "must", "text": "Demonstrate the complete loop Observe → Detect → Predict → Decide → Simulate → Act → Monitor → Recover", "covered_by": ["P9-T6"]},
-    {"id": "R-LOOP-02", "source": "brief §2", "priority": "must", "text": "Judges can interact with and observe a working system", "covered_by": ["P4-T9", "P9-T6"]},
-
-    {"id": "R-PLAT-01", "source": "brief §5", "priority": "must", "text": "Data collection and management", "covered_by": ["P1-T4", "P1-T5"]},
-    {"id": "R-PLAT-02", "source": "brief §5", "priority": "must", "text": "Analysis", "covered_by": ["P2-T2", "P2-T4", "P2-T5"]},
-    {"id": "R-PLAT-03", "source": "brief §5", "priority": "must", "text": "Decision-making support", "covered_by": ["P3-T2", "P3-T4"]},
-    {"id": "R-PLAT-04", "source": "brief §5", "priority": "must", "text": "Applications and operator tools", "covered_by": ["P4-T1", "P4-T4", "P4-T8"]},
-    {"id": "R-PLAT-05", "source": "brief §5", "priority": "must", "text": "Monitoring capabilities", "covered_by": ["P6-T1", "P6-T3", "P6-T4", "P6-T6"]},
-
-    {"id": "R-APP-01", "source": "brief §6", "priority": "must", "text": "A usable operator-facing application (a notebook alone is not a complete submission); web app recommended", "covered_by": ["P4-T1", "P4-T9"]},
-    {"id": "R-APP-02", "source": "brief §6", "priority": "must", "text": "View: current fuel inventory", "covered_by": ["P4-T1", "P4-T2"]},
-    {"id": "R-APP-03", "source": "brief §6", "priority": "must", "text": "View: depot and station status", "covered_by": ["P4-T1"]},
-    {"id": "R-APP-04", "source": "brief §6", "priority": "must", "text": "View: regional fuel demand", "covered_by": ["P4-T1", "P4-T2"]},
-    {"id": "R-APP-05", "source": "brief §6", "priority": "must", "text": "View: shortage alerts", "covered_by": ["P4-T3"]},
-    {"id": "R-APP-06", "source": "brief §6", "priority": "must", "text": "View: projected shortage risk", "covered_by": ["P4-T2"]},
-    {"id": "R-APP-07", "source": "brief §6", "priority": "must", "text": "View: incoming supply", "covered_by": ["P4-T5"]},
-    {"id": "R-APP-08", "source": "brief §6", "priority": "must", "text": "View: disruptions", "covered_by": ["P4-T1", "P4-T3"]},
-    {"id": "R-APP-09", "source": "brief §6", "priority": "must", "text": "View: recommended allocations", "covered_by": ["P4-T4"]},
-    {"id": "R-APP-10", "source": "brief §6", "priority": "must", "text": "View: expected impact of decisions", "covered_by": ["P3-T3", "P4-T4"]},
-    {"id": "R-APP-11", "source": "brief §6", "priority": "must", "text": "View: system alerts", "covered_by": ["P4-T3", "P4-T7"]},
-    {"id": "R-APP-12", "source": "brief §6", "priority": "must", "text": "View: decision history", "covered_by": ["P4-T6"]},
-    {"id": "R-APP-13", "source": "brief §6", "priority": "must", "text": "View: service health", "covered_by": ["P4-T7"]},
-
-    {"id": "R-INT-01", "source": "brief §7", "priority": "must", "text": "At least one meaningful intelligent capability", "covered_by": ["P2-T2", "P2-T4", "P3-T2", "P3-T8", "P9-T5"]},
-    {"id": "R-INT-P1", "source": "brief §7 Prediction", "priority": "must", "selected": true, "text": "Demand forecasting", "covered_by": ["P2-T1", "P2-T2", "P2-T3"]},
-    {"id": "R-INT-P2", "source": "brief §7 Prediction", "priority": "must", "selected": true, "text": "Shortage prediction", "covered_by": ["P2-T4"]},
-    {"id": "R-INT-P3", "source": "brief §7 Prediction", "priority": "must", "selected": true, "text": "Stockout probability", "covered_by": ["P2-T4"]},
-    {"id": "R-INT-P4", "source": "brief §7 Prediction", "priority": "should", "selected": true, "text": "Estimated supply arrival", "covered_by": ["P2-T7"]},
-    {"id": "R-INT-P5", "source": "brief §7 Prediction", "priority": "could", "selected": true, "text": "Transport delay prediction", "covered_by": ["P2-T7"]},
-    {"id": "R-INT-D1", "source": "brief §7 Detection", "priority": "must", "selected": true, "text": "Anomalous demand", "covered_by": ["P2-T5"]},
-    {"id": "R-INT-D2", "source": "brief §7 Detection", "priority": "should", "selected": true, "text": "Abnormal inventory changes", "covered_by": ["P2-T5"]},
-    {"id": "R-INT-D3", "source": "brief §7 Detection", "priority": "should", "selected": true, "text": "Supply-chain bottlenecks", "covered_by": ["P2-T5"]},
-    {"id": "R-INT-D4", "source": "brief §7 Detection", "priority": "must", "selected": true, "text": "Emerging regional disruptions", "covered_by": ["P2-T5"]},
-    {"id": "R-INT-X1", "source": "brief §7 Decision Intelligence", "priority": "must", "selected": true, "text": "Constrained / mathematical optimization (LP)", "covered_by": ["P3-T2"]},
-    {"id": "R-INT-X2", "source": "brief §7 Decision Intelligence", "priority": "must", "selected": true, "text": "Heuristic allocation (fallback and baseline)", "covered_by": ["P3-T1"]},
-    {"id": "R-INT-X3", "source": "brief §7 Decision Intelligence", "priority": "must", "selected": true, "text": "Priority-based allocation (risk-weighted rationing)", "covered_by": ["P3-T2"]},
-    {"id": "R-INT-X4", "source": "brief §7 Decision Intelligence", "priority": "should", "selected": true, "text": "Hybrid policy (LP with automatic heuristic fallback)", "covered_by": ["P3-T7"]},
-    {"id": "R-INT-X5", "source": "brief §7-8", "priority": "could", "selected": false, "text": "Reinforcement learning (optional); if used, must be shown to beat a rule-based or heuristic approach", "covered_by": ["P9-T7"]},
-    {"id": "R-INT-G1", "source": "brief §7 Generative AI", "priority": "should", "selected": true, "text": "Incident explanation", "covered_by": ["P5-T3"]},
-    {"id": "R-INT-G2", "source": "brief §7 Generative AI", "priority": "should", "selected": true, "text": "Supply-chain state summarization", "covered_by": ["P5-T4"]},
-    {"id": "R-INT-G3", "source": "brief §7 Generative AI", "priority": "could", "selected": true, "text": "Operator investigation assistance", "covered_by": ["P5-T4"]},
-    {"id": "R-INT-G4", "source": "brief §7 Generative AI", "priority": "should", "selected": true, "text": "Human-readable decision explanations", "covered_by": ["P5-T2", "P5-T5"]},
-    {"id": "R-INT-G5", "source": "brief §7", "priority": "must", "text": "LLMs support the operational system rather than being only a chatbot around the application", "covered_by": ["P5-T1"]},
-
-    {"id": "R-DS-01", "source": "brief §9", "priority": "must", "text": "Important recommendations are inspectable: why the area is at risk, influencing signals, relevant constraints, expected impact, confidence or uncertainty, alternative actions", "covered_by": ["P3-T2", "P3-T3", "P4-T4"]},
-    {"id": "R-DS-02", "source": "brief §9", "priority": "must", "text": "Human operators remain able to inspect important decisions", "covered_by": ["P3-T6", "P4-T6"]},
-
-    {"id": "R-CRISIS-01", "source": "brief §10", "priority": "must", "text": "For each crisis, show how the system detects, evaluates, responds, explains and monitors recovery", "covered_by": ["P7-T1", "P7-T3"]},
-
-    {"id": "R-RES-01", "source": "brief §11", "priority": "must", "text": "ML model unavailable → fallback allocation policy", "covered_by": ["P3-T7"]},
-    {"id": "R-RES-02", "source": "brief §11", "priority": "must", "text": "Invalid simulator response → reject input and raise alert", "covered_by": ["P1-T2"]},
-    {"id": "R-RES-03", "source": "brief §11", "priority": "must", "text": "Prediction confidence too low → human review requested", "covered_by": ["P3-T6"]},
-    {"id": "R-RES-04", "source": "brief §11", "priority": "must", "text": "Backend dependency unavailable → retry / cached state / degraded mode", "covered_by": ["P1-T2", "P1-T3", "P1-T4"]},
-    {"id": "R-RES-05", "source": "brief §11", "priority": "should", "text": "Use clear mechanisms: fallback logic, graceful degradation, retries, timeout handling, health checks, cached state, validation, circuit breakers, rollback", "covered_by": ["P0-T2", "P1-T2", "P3-T7", "P9-T2"]},
-
-    {"id": "R-DEVOPS-01", "source": "brief §12", "priority": "must", "text": "Reproducible way to launch the application (docker compose up or equivalent documented process)", "covered_by": ["P0-T1", "P0-T2", "P0-T5", "P9-T3"]},
-    {"id": "R-DEVOPS-02", "source": "brief §12", "priority": "must", "text": "Basic delivery workflow: Source → Build → Test → Package → Deploy → Health Check → Running", "covered_by": ["P0-T4", "P9-T1"]},
-    {"id": "R-DEVOPS-03", "source": "brief §12", "priority": "should", "text": "CI/CD workflow (strongly encouraged)", "covered_by": ["P0-T4", "P9-T1"]},
-
-    {"id": "R-OBS-01", "source": "brief §14", "priority": "must", "text": "Application metrics: request rate, latency, error rate, service availability", "covered_by": ["P6-T1"]},
-    {"id": "R-OBS-02", "source": "brief §14", "priority": "must", "text": "System metrics: CPU, memory, resource utilization", "covered_by": ["P6-T5"]},
-    {"id": "R-OBS-03", "source": "brief §14", "priority": "must", "text": "Intelligence metrics: prediction error, model confidence, shortage-alert rate, decision frequency, fallback activation", "covered_by": ["P2-T3", "P6-T1"]},
-    {"id": "R-OBS-04", "source": "brief §14", "priority": "must", "text": "Logs: important actions, integration failures, decision events, recoveries", "covered_by": ["P6-T2"]},
-    {"id": "R-OBS-05", "source": "brief §14", "priority": "could", "text": "Distributed tracing (optional)", "covered_by": ["P9-T7"]},
-    {"id": "R-HEALTH-01", "source": "brief §15", "priority": "must", "text": "Expose health of important components (backend API, database, simulator, prediction service, decision engine, p95 latency, error rate) so judges can tell whether the system is healthy", "covered_by": ["P1-T6", "P6-T6", "P4-T7"]},
-
-    {"id": "R-DATA-01", "source": "brief §16", "priority": "must", "text": "Primary operational data comes from the simulator", "covered_by": ["P1-T4", "P1-T5"]},
-    {"id": "R-DATA-02", "source": "brief §16", "priority": "must", "text": "Document any external, synthetic or generated data used", "covered_by": ["P9-T3"]},
-
-    {"id": "R-LOAD-01", "source": "brief §17", "priority": "must", "text": "Load-test at least one meaningful application path", "covered_by": ["P8-T1"]},
-    {"id": "R-LOAD-02", "source": "brief §17", "priority": "must", "text": "Report average, p50, p95, p99 latency, throughput, error rate, concurrency, resource usage", "covered_by": ["P8-T2", "P8-T3"]},
-    {"id": "R-LOAD-03", "source": "brief §17", "priority": "must", "text": "Explain the behaviour and limits of the system, not just an arbitrary benchmark", "covered_by": ["P8-T3"]},
-
-    {"id": "R-SEC-01", "source": "brief §18", "priority": "must", "text": "Do not hard-code secrets", "covered_by": ["P0-T3"]},
-    {"id": "R-SEC-02", "source": "brief §18", "priority": "must", "text": "Validate external input", "covered_by": ["P1-T1", "P1-T2"]},
-    {"id": "R-SEC-03", "source": "brief §18", "priority": "must", "text": "Handle failed requests appropriately", "covered_by": ["P1-T2", "P3-T5"]},
-    {"id": "R-SEC-04", "source": "brief §18", "priority": "must", "text": "Document required configuration", "covered_by": ["P0-T3", "P9-T3"]},
-    {"id": "R-SEC-05", "source": "brief §18", "priority": "must", "text": "Avoid exposing credentials", "covered_by": ["P0-T3"]},
-    {"id": "R-SEC-06", "source": "brief §18", "priority": "must", "text": "Restrict sensitive operator actions", "covered_by": ["P4-T9"]},
-
-    {"id": "R-ENV-01", "source": "brief glance + §26", "priority": "must", "text": "Organizers may inject surprise domain and engineering events during development or judging; the environment may change", "covered_by": ["P2-T5", "P7-T4"]},
-    {"id": "R-ENV-02", "source": "brief glance", "priority": "must", "text": "All teams integrate with the same BUP Fuel Supply Simulator (published image, unmodified)", "covered_by": ["P0-T2", "P1-T7", "P1-T8"]},
-    {"id": "R-UND-01", "source": "brief §23 (EC-7)", "priority": "must", "text": "Demonstrate clear understanding of the problem and its constraints, and explain the solution effectively", "covered_by": ["PLAN-T1", "PLAN-T2", "PLAN-T3", "PLAN-T4", "PLAN-T5", "PLAN-T6", "PLAN-T7", "P9-T4"]}
+    {
+      "id": "R-CAP-01",
+      "source": "brief §1",
+      "priority": "must",
+      "text": "Observe the current simulated fuel network",
+      "covered_by": ["I1-T4", "I1-T6"]
+    },
+    {
+      "id": "R-CAP-02",
+      "source": "brief §1",
+      "priority": "must",
+      "text": "Identify emerging shortages and operational risks",
+      "covered_by": ["I2-T2", "I3-T4"]
+    },
+    {
+      "id": "R-CAP-03",
+      "source": "brief §1",
+      "priority": "must",
+      "text": "Help operators decide how constrained fuel should be allocated",
+      "covered_by": ["I1-T5", "I2-T3", "I2-T6"]
+    },
+    {
+      "id": "R-CAP-04",
+      "source": "brief §1",
+      "priority": "must",
+      "text": "Respond to unexpected disruptions",
+      "covered_by": ["I2-T3", "I3-T4", "I4-T1"]
+    },
+    {
+      "id": "R-CAP-05",
+      "source": "brief §1",
+      "priority": "must",
+      "text": "Expose the reasoning behind important recommendations",
+      "covered_by": ["I2-T3", "I2-T6", "I4-T2"]
+    },
+    {
+      "id": "R-CAP-06",
+      "source": "brief §1",
+      "priority": "must",
+      "text": "Remain observable and usable during application or service failures",
+      "covered_by": ["I3-T1", "I3-T2", "I3-T3"]
+    },
+    {
+      "id": "R-CAP-07",
+      "source": "brief §1",
+      "priority": "must",
+      "text": "Demonstrate measurable system performance under load",
+      "covered_by": ["I4-T3"]
+    },
+    {
+      "id": "R-CAP-08",
+      "source": "brief §1",
+      "priority": "must",
+      "text": "Operate entirely against the organizer's simulator; no real fuel infrastructure",
+      "covered_by": ["I1-T3"]
+    },
+    {
+      "id": "R-LOOP-01",
+      "source": "brief §2",
+      "priority": "must",
+      "text": "Demonstrate the complete loop Observe → Detect → Predict → Decide → Simulate → Act → Monitor → Recover",
+      "covered_by": ["I5-T3"]
+    },
+    {
+      "id": "R-LOOP-02",
+      "source": "brief §2",
+      "priority": "must",
+      "text": "Judges can interact with and observe a working system",
+      "covered_by": ["I3-T6", "I5-T3"]
+    },
+    {"id": "R-PLAT-01", "source": "brief §5", "priority": "must", "text": "Data collection and management", "covered_by": ["I1-T4"]},
+    {"id": "R-PLAT-02", "source": "brief §5", "priority": "must", "text": "Analysis", "covered_by": ["I2-T1", "I2-T2"]},
+    {"id": "R-PLAT-03", "source": "brief §5", "priority": "must", "text": "Decision-making support", "covered_by": ["I2-T3", "I2-T5"]},
+    {
+      "id": "R-PLAT-04",
+      "source": "brief §5",
+      "priority": "must",
+      "text": "Applications and operator tools",
+      "covered_by": ["I1-T6", "I2-T6", "I3-T6"]
+    },
+    {"id": "R-PLAT-05", "source": "brief §5", "priority": "must", "text": "Monitoring capabilities", "covered_by": ["I3-T5", "I3-T6"]},
+    {
+      "id": "R-APP-01",
+      "source": "brief §6",
+      "priority": "must",
+      "text": "A usable operator-facing application (a notebook alone is not a complete submission); web app recommended",
+      "covered_by": ["I1-T6"]
+    },
+    {"id": "R-APP-02", "source": "brief §6", "priority": "must", "text": "View: current fuel inventory", "covered_by": ["I1-T6"]},
+    {"id": "R-APP-03", "source": "brief §6", "priority": "must", "text": "View: depot and station status", "covered_by": ["I1-T6"]},
+    {"id": "R-APP-04", "source": "brief §6", "priority": "must", "text": "View: regional fuel demand", "covered_by": ["I1-T6"]},
+    {"id": "R-APP-05", "source": "brief §6", "priority": "must", "text": "View: shortage alerts", "covered_by": ["I3-T4"]},
+    {"id": "R-APP-06", "source": "brief §6", "priority": "must", "text": "View: projected shortage risk", "covered_by": ["I2-T6"]},
+    {"id": "R-APP-07", "source": "brief §6", "priority": "must", "text": "View: incoming supply", "covered_by": ["I1-T6", "I2-T8"]},
+    {"id": "R-APP-08", "source": "brief §6", "priority": "must", "text": "View: disruptions", "covered_by": ["I1-T6", "I3-T4"]},
+    {"id": "R-APP-09", "source": "brief §6", "priority": "must", "text": "View: recommended allocations", "covered_by": ["I2-T6"]},
+    {"id": "R-APP-10", "source": "brief §6", "priority": "must", "text": "View: expected impact of decisions", "covered_by": ["I2-T4", "I2-T6"]},
+    {"id": "R-APP-11", "source": "brief §6", "priority": "must", "text": "View: system alerts", "covered_by": ["I3-T4", "I3-T6"]},
+    {"id": "R-APP-12", "source": "brief §6", "priority": "must", "text": "View: decision history", "covered_by": ["I2-T6"]},
+    {"id": "R-APP-13", "source": "brief §6", "priority": "must", "text": "View: service health", "covered_by": ["I3-T6"]},
+    {
+      "id": "R-INT-01",
+      "source": "brief §7",
+      "priority": "must",
+      "text": "At least one meaningful intelligent capability",
+      "covered_by": ["I2-T1", "I2-T3", "I2-T7"]
+    },
+    {
+      "id": "R-INT-P1",
+      "source": "brief §7 Prediction",
+      "priority": "must",
+      "selected": true,
+      "text": "Demand forecasting",
+      "covered_by": ["I2-T1", "OPT-T5"]
+    },
+    {"id": "R-INT-P2", "source": "brief §7 Prediction", "priority": "must", "selected": true, "text": "Shortage prediction", "covered_by": ["I2-T2"]},
+    {"id": "R-INT-P3", "source": "brief §7 Prediction", "priority": "must", "selected": true, "text": "Stockout probability", "covered_by": ["I2-T2"]},
+    {
+      "id": "R-INT-P4",
+      "source": "brief §7 Prediction",
+      "priority": "should",
+      "selected": true,
+      "text": "Estimated supply arrival",
+      "covered_by": ["I2-T2"]
+    },
+    {
+      "id": "R-INT-P5",
+      "source": "brief §7 Prediction",
+      "priority": "could",
+      "selected": true,
+      "text": "Transport delay prediction",
+      "covered_by": ["OPT-T1"]
+    },
+    {"id": "R-INT-D1", "source": "brief §7 Detection", "priority": "must", "selected": true, "text": "Anomalous demand", "covered_by": ["I3-T4"]},
+    {
+      "id": "R-INT-D2",
+      "source": "brief §7 Detection",
+      "priority": "should",
+      "selected": true,
+      "text": "Abnormal inventory changes",
+      "covered_by": ["I3-T4"]
+    },
+    {
+      "id": "R-INT-D3",
+      "source": "brief §7 Detection",
+      "priority": "should",
+      "selected": true,
+      "text": "Supply-chain bottlenecks",
+      "covered_by": ["I2-T3"]
+    },
+    {
+      "id": "R-INT-D4",
+      "source": "brief §7 Detection",
+      "priority": "must",
+      "selected": true,
+      "text": "Emerging regional disruptions",
+      "covered_by": ["I3-T4"]
+    },
+    {
+      "id": "R-INT-X1",
+      "source": "brief §7 Decision Intelligence",
+      "priority": "must",
+      "selected": true,
+      "text": "Constrained / mathematical optimization (LP)",
+      "covered_by": ["I2-T3"]
+    },
+    {
+      "id": "R-INT-X2",
+      "source": "brief §7 Decision Intelligence",
+      "priority": "must",
+      "selected": true,
+      "text": "Heuristic allocation (fallback and baseline)",
+      "covered_by": ["I1-T5"]
+    },
+    {
+      "id": "R-INT-X3",
+      "source": "brief §7 Decision Intelligence",
+      "priority": "must",
+      "selected": true,
+      "text": "Priority-based allocation (risk-weighted rationing)",
+      "covered_by": ["I2-T3"]
+    },
+    {
+      "id": "R-INT-X4",
+      "source": "brief §7 Decision Intelligence",
+      "priority": "should",
+      "selected": true,
+      "text": "Hybrid policy (LP with automatic heuristic fallback)",
+      "covered_by": ["I3-T3"]
+    },
+    {
+      "id": "R-INT-X5",
+      "source": "brief §7-8",
+      "priority": "could",
+      "selected": false,
+      "text": "Reinforcement learning (optional); if used, must be shown to beat a rule-based or heuristic approach",
+      "covered_by": ["OPT-T3"]
+    },
+    {
+      "id": "R-INT-G1",
+      "source": "brief §7 Generative AI",
+      "priority": "should",
+      "selected": true,
+      "text": "Incident explanation",
+      "covered_by": ["I4-T2"]
+    },
+    {
+      "id": "R-INT-G2",
+      "source": "brief §7 Generative AI",
+      "priority": "should",
+      "selected": true,
+      "text": "Supply-chain state summarization",
+      "covered_by": ["I4-T2"]
+    },
+    {
+      "id": "R-INT-G3",
+      "source": "brief §7 Generative AI",
+      "priority": "could",
+      "selected": true,
+      "text": "Operator investigation assistance",
+      "covered_by": ["OPT-T2"]
+    },
+    {
+      "id": "R-INT-G4",
+      "source": "brief §7 Generative AI",
+      "priority": "should",
+      "selected": true,
+      "text": "Human-readable decision explanations",
+      "covered_by": ["I4-T2"]
+    },
+    {
+      "id": "R-INT-G5",
+      "source": "brief §7",
+      "priority": "must",
+      "text": "LLMs support the operational system rather than being only a chatbot around the application",
+      "covered_by": ["I4-T2"]
+    },
+    {
+      "id": "R-DS-01",
+      "source": "brief §9",
+      "priority": "must",
+      "text": "Important recommendations are inspectable: why the area is at risk, influencing signals, relevant constraints, expected impact, confidence or uncertainty, alternative actions",
+      "covered_by": ["I2-T3", "I2-T4", "I2-T6"]
+    },
+    {
+      "id": "R-DS-02",
+      "source": "brief §9",
+      "priority": "must",
+      "text": "Human operators remain able to inspect important decisions",
+      "covered_by": ["I2-T5", "I2-T6"]
+    },
+    {
+      "id": "R-CRISIS-01",
+      "source": "brief §10",
+      "priority": "must",
+      "text": "For each crisis, show how the system detects, evaluates, responds, explains and monitors recovery",
+      "covered_by": ["I4-T1"]
+    },
+    {
+      "id": "R-RES-01",
+      "source": "brief §11",
+      "priority": "must",
+      "text": "ML model unavailable → fallback allocation policy",
+      "covered_by": ["I3-T3"]
+    },
+    {
+      "id": "R-RES-02",
+      "source": "brief §11",
+      "priority": "must",
+      "text": "Invalid simulator response → reject input and raise alert",
+      "covered_by": ["I1-T3", "I3-T1"]
+    },
+    {
+      "id": "R-RES-03",
+      "source": "brief §11",
+      "priority": "must",
+      "text": "Prediction confidence too low → human review requested",
+      "covered_by": ["I2-T5", "I3-T1"]
+    },
+    {
+      "id": "R-RES-04",
+      "source": "brief §11",
+      "priority": "must",
+      "text": "Backend dependency unavailable → retry / cached state / degraded mode",
+      "covered_by": ["I3-T1", "I3-T2", "I3-T3"]
+    },
+    {
+      "id": "R-RES-05",
+      "source": "brief §11",
+      "priority": "should",
+      "text": "Use clear mechanisms: fallback logic, graceful degradation, retries, timeout handling, health checks, cached state, validation, circuit breakers, rollback",
+      "covered_by": ["I1-T2", "I3-T1", "I5-T1"]
+    },
+    {
+      "id": "R-DEVOPS-01",
+      "source": "brief §12",
+      "priority": "must",
+      "text": "Reproducible way to launch the application (docker compose up or equivalent documented process)",
+      "covered_by": ["I1-T1", "I1-T2", "I5-T1"]
+    },
+    {
+      "id": "R-DEVOPS-02",
+      "source": "brief §12",
+      "priority": "must",
+      "text": "Basic delivery workflow: Source → Build → Test → Package → Deploy → Health Check → Running",
+      "covered_by": ["I1-T7", "I5-T4"]
+    },
+    {
+      "id": "R-DEVOPS-03",
+      "source": "brief §12",
+      "priority": "should",
+      "text": "CI/CD workflow (strongly encouraged)",
+      "covered_by": ["I1-T7", "I5-T4"]
+    },
+    {
+      "id": "R-OBS-01",
+      "source": "brief §14",
+      "priority": "must",
+      "text": "Application metrics: request rate, latency, error rate, service availability",
+      "covered_by": ["I1-T9", "I3-T5"]
+    },
+    {
+      "id": "R-OBS-02",
+      "source": "brief §14",
+      "priority": "must",
+      "text": "System metrics: CPU, memory, resource utilization",
+      "covered_by": ["I4-T3", "OPT-T4"]
+    },
+    {
+      "id": "R-OBS-03",
+      "source": "brief §14",
+      "priority": "must",
+      "text": "Intelligence metrics: prediction error, model confidence, shortage-alert rate, decision frequency, fallback activation",
+      "covered_by": ["I2-T1", "I3-T5"]
+    },
+    {
+      "id": "R-OBS-04",
+      "source": "brief §14",
+      "priority": "must",
+      "text": "Logs: important actions, integration failures, decision events, recoveries",
+      "covered_by": ["I3-T5"]
+    },
+    {"id": "R-OBS-05", "source": "brief §14", "priority": "could", "text": "Distributed tracing (optional)", "covered_by": ["OPT-T4"]},
+    {
+      "id": "R-HEALTH-01",
+      "source": "brief §15",
+      "priority": "must",
+      "text": "Expose health of important components (backend API, database, simulator, prediction service, decision engine, p95 latency, error rate) so judges can tell whether the system is healthy",
+      "covered_by": ["I3-T6"]
+    },
+    {
+      "id": "R-DATA-01",
+      "source": "brief §16",
+      "priority": "must",
+      "text": "Primary operational data comes from the simulator",
+      "covered_by": ["I1-T4"]
+    },
+    {
+      "id": "R-DATA-02",
+      "source": "brief §16",
+      "priority": "must",
+      "text": "Document any external, synthetic or generated data used",
+      "covered_by": ["I5-T1"]
+    },
+    {
+      "id": "R-LOAD-01",
+      "source": "brief §17",
+      "priority": "must",
+      "text": "Load-test at least one meaningful application path",
+      "covered_by": ["I4-T3"]
+    },
+    {
+      "id": "R-LOAD-02",
+      "source": "brief §17",
+      "priority": "must",
+      "text": "Report average, p50, p95, p99 latency, throughput, error rate, concurrency, resource usage",
+      "covered_by": ["I4-T3"]
+    },
+    {
+      "id": "R-LOAD-03",
+      "source": "brief §17",
+      "priority": "must",
+      "text": "Explain the behaviour and limits of the system, not just an arbitrary benchmark",
+      "covered_by": ["I4-T3"]
+    },
+    {"id": "R-SEC-01", "source": "brief §18", "priority": "must", "text": "Do not hard-code secrets", "covered_by": ["I1-T2"]},
+    {"id": "R-SEC-02", "source": "brief §18", "priority": "must", "text": "Validate external input", "covered_by": ["I1-T3"]},
+    {"id": "R-SEC-03", "source": "brief §18", "priority": "must", "text": "Handle failed requests appropriately", "covered_by": ["I1-T3", "I1-T5"]},
+    {"id": "R-SEC-04", "source": "brief §18", "priority": "must", "text": "Document required configuration", "covered_by": ["I1-T2", "I5-T1"]},
+    {"id": "R-SEC-05", "source": "brief §18", "priority": "must", "text": "Avoid exposing credentials", "covered_by": ["I1-T2"]},
+    {"id": "R-SEC-06", "source": "brief §18", "priority": "must", "text": "Restrict sensitive operator actions", "covered_by": ["I3-T6"]},
+    {
+      "id": "R-ENV-01",
+      "source": "brief glance + §26",
+      "priority": "must",
+      "text": "Organizers may inject surprise domain and engineering events during development or judging; the environment may change",
+      "covered_by": ["I3-T4", "I5-T3"]
+    },
+    {
+      "id": "R-ENV-02",
+      "source": "brief glance",
+      "priority": "must",
+      "text": "All teams integrate with the same BUP Fuel Supply Simulator (published image, unmodified)",
+      "covered_by": ["I1-T2", "I1-T7", "I1-T8"]
+    },
+    {
+      "id": "R-UND-01",
+      "source": "brief §23 (EC-7)",
+      "priority": "must",
+      "text": "Demonstrate clear understanding of the problem and its constraints, and explain the solution effectively",
+      "covered_by": ["PLAN-T1", "PLAN-T2", "PLAN-T3", "PLAN-T4", "PLAN-T5", "PLAN-T6", "PLAN-T7", "PLAN-T8", "I1-T8", "I5-T2"]
+    }
   ],
-
   "guardrails": [
-    {"id": "G-01", "source": "brief §24", "text": "Operate only against the simulation environment", "enforced_by": ["CLAUDE.md hard rule 1", "CLAUDE.md hard rule 13"]},
+    {
+      "id": "G-01",
+      "source": "brief §24",
+      "text": "Operate only against the simulation environment",
+      "enforced_by": ["CLAUDE.md hard rule 1", "CLAUDE.md hard rule 13"]
+    },
     {"id": "G-02", "source": "brief §24", "text": "Do not interact with real fuel infrastructure", "enforced_by": ["CLAUDE.md hard rule 13"]},
     {"id": "G-03", "source": "brief §24", "text": "Do not execute real purchases or dispatches", "enforced_by": ["CLAUDE.md hard rule 2"]},
-    {"id": "G-04", "source": "brief §24", "text": "Do not use real credentials or private operational systems", "enforced_by": ["CLAUDE.md hard rule 12"]},
-    {"id": "G-05", "source": "brief §24", "text": "Distinguish simulated results from real-world fuel conditions", "enforced_by": ["P4-T9 SIMULATED DATA badge"]},
-    {"id": "G-06", "source": "brief §24", "text": "Document important assumptions", "enforced_by": ["P9-T3", "plan.md §1.3-1.4"]},
-    {"id": "G-07", "source": "brief §24", "text": "Preserve human review for consequential simulated decisions", "enforced_by": ["P3-T6 Manual/Assisted modes"]}
+    {
+      "id": "G-04",
+      "source": "brief §24",
+      "text": "Do not use real credentials or private operational systems",
+      "enforced_by": ["CLAUDE.md hard rule 12"]
+    },
+    {
+      "id": "G-05",
+      "source": "brief §24",
+      "text": "Distinguish simulated results from real-world fuel conditions",
+      "enforced_by": ["I1-T6 SIMULATED DATA badge"]
+    },
+    {"id": "G-06", "source": "brief §24", "text": "Document important assumptions", "enforced_by": ["I5-T1", "plan.md §1.3-1.4"]},
+    {
+      "id": "G-07",
+      "source": "brief §24",
+      "text": "Preserve human review for consequential simulated decisions",
+      "enforced_by": ["I2-T5 Manual/Assisted modes"]
+    }
   ],
-
   "deliverables": {
     "required": [
-      {"id": "D-01", "name": "Working Application", "text": "A runnable end-to-end platform", "iterations": ["P0", "P1", "P2", "P3", "P4"], "artifact": "docker compose up → full platform", "status": "todo", "evidence": []},
-      {"id": "D-02", "name": "Source Repository", "text": "Application code, setup instructions, dependencies, deployment instructions", "iterations": ["P0", "P9"], "artifact": "This repo, README.md, .env.example", "status": "in_progress", "evidence": ["plan.md", "architecture.md", "CLAUDE.md"]},
-      {"id": "D-03", "name": "Simulator Integration", "text": "The system interacts with the official BUP Fuel Supply Simulator", "iterations": ["P1"], "artifact": "backend/app/integration, state sync, actuator", "status": "todo", "evidence": []},
-      {"id": "D-04", "name": "Intelligence Component", "text": "At least one meaningful AI, ML, optimization, detection or decision-support capability", "iterations": ["P2", "P3"], "artifact": "intelligence/ service", "status": "todo", "evidence": []},
-      {"id": "D-05", "name": "Operator Interface", "text": "A usable interface showing meaningful operational information", "iterations": ["P4"], "artifact": "frontend/ console", "status": "todo", "evidence": []},
-      {"id": "D-06", "name": "Architecture Diagram", "text": "simulator → data/backend → intelligence → decision → application → monitoring", "iterations": ["PLAN", "P9"], "artifact": "architecture.md §2 (mermaid) + exported image in docs/", "status": "in_progress", "evidence": ["architecture.md"]},
-      {"id": "D-07", "name": "Deployment", "text": "A reproducible deployment method", "iterations": ["P0", "P9"], "artifact": "docker-compose.yml, GHCR images, CI/CD", "status": "todo", "evidence": []},
-      {"id": "D-08", "name": "Observability Evidence", "text": "Logs, metrics, dashboards, alerts or equivalent outputs", "iterations": ["P6"], "artifact": "infra/grafana, infra/prometheus, /api/health", "status": "todo", "evidence": []},
-      {"id": "D-09", "name": "Resilience Demonstration", "text": "Evidence of how the application responds to at least one meaningful failure condition", "iterations": ["P7"], "artifact": "docs/resilience-evidence.md", "status": "todo", "evidence": []},
-      {"id": "D-10", "name": "Load-Test Evidence", "text": "Workload definition and measured results", "iterations": ["P8"], "artifact": "loadtest/, docs/load-test-report.md", "status": "todo", "evidence": []},
-      {"id": "D-11", "name": "Final Demo", "text": "A live or judge-supervised demonstration of the system", "iterations": ["P9"], "artifact": "demo_script below, rehearsed", "status": "todo", "evidence": []}
+      {
+        "id": "D-01",
+        "name": "Working Application",
+        "text": "A runnable end-to-end platform",
+        "iterations": ["I1", "I2", "I3"],
+        "artifact": "docker compose up → full platform",
+        "status": "todo",
+        "evidence": []
+      },
+      {
+        "id": "D-02",
+        "name": "Source Repository",
+        "text": "Application code, setup instructions, dependencies, deployment instructions",
+        "iterations": ["PLAN", "I1", "I5"],
+        "artifact": "This repo, README.md, .env.example",
+        "status": "in_progress",
+        "evidence": ["plan.md", "architecture.md", "CLAUDE.md"]
+      },
+      {
+        "id": "D-03",
+        "name": "Simulator Integration",
+        "text": "The system interacts with the official BUP Fuel Supply Simulator",
+        "iterations": ["I1", "I3"],
+        "artifact": "server/fuelops/backend/integration, state sync, actuator",
+        "status": "todo",
+        "evidence": []
+      },
+      {
+        "id": "D-04",
+        "name": "Intelligence Component",
+        "text": "At least one meaningful AI, ML, optimization, detection or decision-support capability",
+        "iterations": ["I2", "I3"],
+        "artifact": "server/fuelops/intelligence (forecaster, risk, planner) + backend detectors",
+        "status": "todo",
+        "evidence": []
+      },
+      {
+        "id": "D-05",
+        "name": "Operator Interface",
+        "text": "A usable interface showing meaningful operational information",
+        "iterations": ["I1", "I2", "I3"],
+        "artifact": "frontend/ five views",
+        "status": "todo",
+        "evidence": []
+      },
+      {
+        "id": "D-06",
+        "name": "Architecture Diagram",
+        "text": "simulator → data/backend → intelligence → decision → application → monitoring",
+        "iterations": ["PLAN", "I5"],
+        "artifact": "architecture.md §2 (mermaid) + exported image in docs/",
+        "status": "in_progress",
+        "evidence": ["architecture.md"]
+      },
+      {
+        "id": "D-07",
+        "name": "Deployment",
+        "text": "A reproducible deployment method",
+        "iterations": ["I1", "I5"],
+        "artifact": "docker-compose.yml, CI, versioned images",
+        "status": "todo",
+        "evidence": []
+      },
+      {
+        "id": "D-08",
+        "name": "Observability Evidence",
+        "text": "Logs, metrics, dashboards, alerts or equivalent outputs",
+        "iterations": ["I3"],
+        "artifact": "infra/grafana, infra/prometheus, /api/health",
+        "status": "todo",
+        "evidence": []
+      },
+      {
+        "id": "D-09",
+        "name": "Resilience Demonstration",
+        "text": "Evidence of how the application responds to at least one meaningful failure condition",
+        "iterations": ["I3", "I4"],
+        "artifact": "docs/resilience-evidence.md",
+        "status": "todo",
+        "evidence": []
+      },
+      {
+        "id": "D-10",
+        "name": "Load-Test Evidence",
+        "text": "Workload definition and measured results",
+        "iterations": ["I4"],
+        "artifact": "loadtest/, docs/load-test-report.md",
+        "status": "todo",
+        "evidence": []
+      },
+      {
+        "id": "D-11",
+        "name": "Final Demo",
+        "text": "A live or judge-supervised demonstration of the system",
+        "iterations": ["I5"],
+        "artifact": "demo_script below, rehearsed",
+        "status": "todo",
+        "evidence": []
+      }
     ],
     "recommended": [
-      {"id": "RD-01", "name": "CI/CD", "plan": "GitHub Actions: lint → test → integration → build → push → smoke", "covered_by": ["P0-T4", "P9-T1"], "status": "todo"},
-      {"id": "RD-02", "name": "Automated tests", "plan": "pytest (unit + integration against real simulator), vitest", "covered_by": ["P0-T4", "P1-T8"], "status": "todo"},
-      {"id": "RD-03", "name": "Experiment tracking", "plan": "JSON metrics per model version in models/", "covered_by": ["P2-T2"], "status": "todo"},
-      {"id": "RD-04", "name": "Model versioning", "plan": "MODEL_VERSION artifacts, GET /model/info", "covered_by": ["P2-T2"], "status": "todo"},
-      {"id": "RD-05", "name": "Decision audit history", "plan": "decisions table + UI page", "covered_by": ["P3-T4", "P4-T6"], "status": "todo"},
-      {"id": "RD-06", "name": "Deployment versioning", "plan": "Images tagged by git SHA, IMAGE_TAG", "covered_by": ["P9-T1"], "status": "todo"},
-      {"id": "RD-07", "name": "Simulation replay", "plan": "Deterministic replay via /admin/reset + /admin/step", "covered_by": ["P3-T8"], "status": "todo"},
-      {"id": "RD-08", "name": "Scenario configuration", "plan": "scenarios/*.yaml + run_scenario.py", "covered_by": ["P7-T1"], "status": "todo"},
-      {"id": "RD-09", "name": "Automated fallback", "plan": "Heuristic policy on intelligence failure; templates on LLM failure", "covered_by": ["P3-T7", "P5-T5"], "status": "todo"},
-      {"id": "RD-10", "name": "Rollback", "plan": "Image tag, model version and LP ↔ heuristic policy rollback", "covered_by": ["P9-T2"], "status": "todo"}
+      {
+        "id": "RD-01",
+        "name": "CI/CD",
+        "plan": "GitHub Actions: lint → test → integration → build → push → smoke",
+        "covered_by": ["I1-T7", "I5-T4"],
+        "status": "todo"
+      },
+      {
+        "id": "RD-02",
+        "name": "Automated tests",
+        "plan": "pytest (unit + integration against real simulator), vitest",
+        "covered_by": ["I1-T7"],
+        "status": "todo"
+      },
+      {
+        "id": "RD-03",
+        "name": "Experiment tracking",
+        "plan": "Forecast metrics per model version + benchmark results",
+        "covered_by": ["I2-T1", "I2-T7"],
+        "status": "todo"
+      },
+      {
+        "id": "RD-04",
+        "name": "Model versioning",
+        "plan": "models/forecast-<ver>.json, MODEL_VERSION, GET /model/info",
+        "covered_by": ["I2-T1"],
+        "status": "todo"
+      },
+      {"id": "RD-05", "name": "Decision audit history", "plan": "decisions table + UI page", "covered_by": ["I2-T5", "I2-T6"], "status": "todo"},
+      {"id": "RD-06", "name": "Deployment versioning", "plan": "Images tagged by git SHA, IMAGE_TAG", "covered_by": ["I5-T4"], "status": "todo"},
+      {
+        "id": "RD-07",
+        "name": "Simulation replay",
+        "plan": "Deterministic replay via /admin/reset + /admin/step",
+        "covered_by": ["I2-T7"],
+        "status": "todo"
+      },
+      {"id": "RD-08", "name": "Scenario configuration", "plan": "scenarios/*.yaml + run_scenario.py", "covered_by": ["I4-T1"], "status": "todo"},
+      {
+        "id": "RD-09",
+        "name": "Automated fallback",
+        "plan": "Heuristic policy on intelligence failure; templates on LLM failure",
+        "covered_by": ["I3-T3", "I4-T2"],
+        "status": "todo"
+      },
+      {
+        "id": "RD-10",
+        "name": "Rollback",
+        "plan": "Image/git tag rollback, model version rollback, planner ↔ heuristic switch (PLANNER_POLICY)",
+        "covered_by": ["I5-T1"],
+        "status": "todo"
+      }
     ],
     "optional_advanced": [
-      {"name": "Reinforcement learning", "decision": "could", "covered_by": ["P9-T7"]},
-      {"name": "Multi-agent decision systems", "decision": "could", "covered_by": ["P9-T7"]},
-      {"name": "Optimization + ML hybrids", "decision": "in scope", "covered_by": ["P3-T2"]},
-      {"name": "Uncertainty-aware allocation", "decision": "in scope (safety stock from forecast σ)", "covered_by": ["P3-T2"]},
-      {"name": "Counterfactual simulation", "decision": "in scope (what-if projector)", "covered_by": ["P3-T3"]},
-      {"name": "Automated incident detection", "decision": "in scope", "covered_by": ["P2-T5", "P2-T6"]},
-      {"name": "Policy rollback", "decision": "in scope", "covered_by": ["P9-T2"]},
-      {"name": "Drift detection", "decision": "could", "covered_by": ["P9-T7"]},
-      {"name": "Event-driven architecture / streaming", "decision": "in scope (SSE-driven sync)", "covered_by": ["P1-T3"]},
-      {"name": "Kubernetes deployment / Helm / autoscaling", "decision": "could", "covered_by": ["P9-T7"]},
-      {"name": "Generative-AI operations assistant", "decision": "in scope", "covered_by": ["P5-T4"]}
+      {"name": "Reinforcement learning", "decision": "could", "covered_by": ["OPT-T3"]},
+      {"name": "Multi-agent decision systems", "decision": "dropped (24 h scope)", "covered_by": []},
+      {"name": "Optimization + ML hybrids", "decision": "in scope (learned forecast feeding the LP planner)", "covered_by": ["I2-T3"]},
+      {"name": "Uncertainty-aware allocation", "decision": "in scope (plan against μ + zσ, P(stockout))", "covered_by": ["I2-T3"]},
+      {"name": "Counterfactual simulation", "decision": "in scope (what-if evaluator)", "covered_by": ["I2-T4"]},
+      {"name": "Automated incident detection", "decision": "in scope", "covered_by": ["I3-T4"]},
+      {"name": "Policy rollback", "decision": "in scope (PLANNER_POLICY switch)", "covered_by": ["I5-T1"]},
+      {"name": "Drift detection", "decision": "dropped (24 h scope)", "covered_by": []},
+      {"name": "Event-driven architecture / streaming", "decision": "in scope (SSE-driven sync)", "covered_by": ["I3-T2"]},
+      {"name": "Kubernetes deployment / Helm / autoscaling", "decision": "dropped (24 h scope)", "covered_by": []},
+      {"name": "Generative-AI operations assistant", "decision": "in scope (explanations, briefing); Q&A could", "covered_by": ["I4-T2", "OPT-T2"]}
     ],
     "note": "The brief states that complexity alone will not raise the score; optional items must meaningfully improve the solution."
   },
-
   "crisis_scenarios": [
-    {"id": "CR-01", "scenario": "Shipment delay", "condition": "Incoming fuel arrives later than expected", "must_show": "Warning, shortage impact, decision response, recovery", "sim_events": ["shipment_delay"], "scenario_file": "scenarios/shipment-delay.yaml", "status": "todo"},
-    {"id": "CR-02", "scenario": "Demand spike", "condition": "One or more regions experience elevated demand", "must_show": "Risk change, forecast/detection response, allocation adaptation", "sim_events": ["demand_spike"], "scenario_file": "scenarios/demand-spike.yaml", "status": "todo"},
-    {"id": "CR-03", "scenario": "Depot constraint", "condition": "Available inventory or capacity is reduced", "must_show": "Constraint handling, reallocation, service impact", "sim_events": ["depot_constraint", "supply_shortfall"], "scenario_file": "scenarios/depot-constraint.yaml", "status": "todo"},
-    {"id": "CR-04", "scenario": "Regional disruption", "condition": "A route or region becomes temporarily unavailable", "must_show": "Alternative allocation and recovery behavior", "sim_events": ["route_disruption", "station_outage"], "scenario_file": "scenarios/route-disruption.yaml", "status": "todo"},
-    {"id": "CR-05", "scenario": "Combined crisis", "condition": "Two or more disruptions occur together", "must_show": "End-to-end resilience and failure boundaries", "sim_events": ["route_disruption", "shipment_delay", "demand_spike"], "scenario_file": "scenarios/combined-crisis.yaml", "status": "todo"}
+    {
+      "id": "CR-01",
+      "scenario": "Shipment delay",
+      "condition": "Incoming fuel arrives later than expected",
+      "must_show": "Warning, shortage impact, decision response, recovery",
+      "sim_events": ["shipment_delay"],
+      "scenario_file": "scenarios/shipment-delay.yaml",
+      "status": "todo",
+      "covered_by": ["I4-T1"]
+    },
+    {
+      "id": "CR-02",
+      "scenario": "Demand spike",
+      "condition": "One or more regions experience elevated demand",
+      "must_show": "Risk change, forecast/detection response, allocation adaptation",
+      "sim_events": ["demand_spike"],
+      "scenario_file": "scenarios/demand-spike.yaml",
+      "status": "todo",
+      "covered_by": ["I4-T1"]
+    },
+    {
+      "id": "CR-03",
+      "scenario": "Depot constraint",
+      "condition": "Available inventory or capacity is reduced",
+      "must_show": "Constraint handling, reallocation, service impact",
+      "sim_events": ["depot_constraint", "supply_shortfall"],
+      "scenario_file": "scenarios/depot-constraint.yaml",
+      "status": "todo",
+      "covered_by": ["I4-T1"]
+    },
+    {
+      "id": "CR-04",
+      "scenario": "Regional disruption",
+      "condition": "A route or region becomes temporarily unavailable",
+      "must_show": "Alternative allocation and recovery behavior",
+      "sim_events": ["route_disruption", "station_outage"],
+      "scenario_file": "scenarios/route-disruption.yaml",
+      "status": "todo",
+      "covered_by": ["I4-T1"]
+    },
+    {
+      "id": "CR-05",
+      "scenario": "Combined crisis",
+      "condition": "Two or more disruptions occur together",
+      "must_show": "End-to-end resilience and failure boundaries",
+      "sim_events": ["route_disruption", "shipment_delay", "demand_spike"],
+      "scenario_file": "scenarios/combined-crisis.yaml",
+      "status": "todo",
+      "covered_by": ["I4-T1"]
+    }
   ],
-
   "resilience_matrix": [
-    {"id": "F-01", "failure": "Intelligence service down or slow", "response": "Heuristic fallback policy; recommendations tagged heuristic", "requirement": "R-RES-01", "task": "P3-T7", "demo_step": 11, "status": "todo"},
-    {"id": "F-02", "failure": "Simulator unavailable / error_rate (503)", "response": "Retry with backoff + jitter, circuit breaker, cached state flagged degraded, auto-actions paused", "requirement": "R-RES-04", "task": "P1-T2", "demo_step": 11, "status": "todo"},
-    {"id": "F-03", "failure": "Simulator latency fault", "response": "Timeouts and retries; skip decision cycle when state is too old", "requirement": "R-RES-04", "task": "P1-T2", "status": "todo"},
-    {"id": "F-04", "failure": "stale_data fault (X-Simulator-Stale)", "response": "Banner; block auto-approval; recommendations require review", "requirement": "R-RES-03", "task": "P1-T2", "status": "todo"},
-    {"id": "F-05", "failure": "stream_disconnect or silent SSE drop", "response": "Poll /v1/instance, reconnect loop, full resync", "requirement": "R-RES-04", "task": "P1-T3", "status": "todo"},
-    {"id": "F-06", "failure": "Invalid simulator response", "response": "Reject payload, keep last-good state, raise system alert", "requirement": "R-RES-02", "task": "P1-T2", "status": "todo"},
-    {"id": "F-07", "failure": "Low prediction confidence", "response": "Human review required even in Assisted mode", "requirement": "R-RES-03", "task": "P3-T6", "status": "todo"},
-    {"id": "F-08", "failure": "Allocation rejected with 409", "response": "Code-specific reaction (split, reroute, wait, re-fetch)", "requirement": "R-SEC-03", "task": "P3-T5", "status": "todo"},
-    {"id": "F-09", "failure": "Postgres down", "response": "In-memory state continues, bounded write buffer, database shown degraded", "requirement": "R-RES-04", "task": "P1-T4", "status": "todo"},
-    {"id": "F-10", "failure": "LLM down or no API key", "response": "Template explanations", "requirement": "R-INT-G4", "task": "P5-T5", "status": "todo"},
-    {"id": "F-11", "failure": "Backend crash", "response": "Container restart policy; state rebuilt from REST + DB", "requirement": "R-RES-05", "task": "P0-T2", "status": "todo"},
-    {"id": "F-12", "failure": "Simulator reset", "response": "New run epoch, caches cleared", "requirement": "R-RES-04", "task": "P1-T4", "status": "todo"}
+    {
+      "id": "F-01",
+      "failure": "Intelligence service down or slow",
+      "response": "Heuristic fallback policy; plans tagged heuristic",
+      "requirement": "R-RES-01",
+      "task": "I3-T3",
+      "demo_step": 11,
+      "status": "todo"
+    },
+    {
+      "id": "F-02",
+      "failure": "Simulator unavailable / error_rate (503)",
+      "response": "Retry with backoff + jitter, circuit breaker, cached state flagged degraded, auto-actions paused",
+      "requirement": "R-RES-04",
+      "task": "I3-T1",
+      "demo_step": 11,
+      "status": "todo"
+    },
+    {
+      "id": "F-03",
+      "failure": "Simulator latency fault",
+      "response": "Timeouts and retries; skip decision cycle when state is too old",
+      "requirement": "R-RES-04",
+      "task": "I3-T1",
+      "status": "todo"
+    },
+    {
+      "id": "F-04",
+      "failure": "stale_data fault (X-Simulator-Stale)",
+      "response": "Banner; block auto-approval; recommendations require review",
+      "requirement": "R-RES-03",
+      "task": "I3-T1",
+      "status": "todo"
+    },
+    {
+      "id": "F-05",
+      "failure": "stream_disconnect or silent SSE drop",
+      "response": "Poll /v1/instance, reconnect loop, full resync",
+      "requirement": "R-RES-04",
+      "task": "I3-T2",
+      "status": "todo"
+    },
+    {
+      "id": "F-06",
+      "failure": "Invalid simulator response",
+      "response": "Reject payload, keep last-good state, raise system alert",
+      "requirement": "R-RES-02",
+      "task": "I1-T3",
+      "status": "todo"
+    },
+    {
+      "id": "F-07",
+      "failure": "Low prediction confidence",
+      "response": "Human review required even in Assisted mode",
+      "requirement": "R-RES-03",
+      "task": "I2-T5",
+      "status": "todo"
+    },
+    {
+      "id": "F-08",
+      "failure": "Allocation rejected with 409",
+      "response": "Code-specific reaction (split, reroute, wait, re-fetch)",
+      "requirement": "R-SEC-03",
+      "task": "I1-T5",
+      "status": "todo"
+    },
+    {
+      "id": "F-09",
+      "failure": "Postgres down",
+      "response": "In-memory state continues, database shown degraded (write-buffer replay optional)",
+      "requirement": "R-RES-04",
+      "task": "I3-T3",
+      "status": "todo"
+    },
+    {
+      "id": "F-10",
+      "failure": "LLM down or no API key",
+      "response": "Template explanations",
+      "requirement": "R-INT-G4",
+      "task": "I4-T2",
+      "status": "todo"
+    },
+    {
+      "id": "F-11",
+      "failure": "Backend crash",
+      "response": "Container restart policy; state rebuilt from REST + DB",
+      "requirement": "R-RES-05",
+      "task": "I1-T2",
+      "status": "todo"
+    },
+    {
+      "id": "F-12",
+      "failure": "Simulator reset",
+      "response": "New run epoch, caches cleared",
+      "requirement": "R-RES-04",
+      "task": "I3-T3",
+      "status": "todo"
+    }
   ],
-
   "demo_script": {
     "setup": "SIMULATION_SPEED=1, mode Assisted, UI and Grafana side by side",
     "steps": [
-      {"step": 1, "story": "Normal operations", "action": "Simulation running; service level ≈ 1.0; all health components green", "needs": ["P4-T1", "P4-T7"]},
-      {"step": 2, "story": "Operator dashboard", "action": "Network overview, inventory gauges, incoming supply, health board", "needs": ["P4-T1", "P4-T5", "P4-T7"]},
-      {"step": 3, "story": "Demand starts increasing", "action": "Chaos panel: demand_spike on region-dhaka ×1.8 starting in 4 ticks (visible as SCHEDULED)", "needs": ["P4-T8"]},
-      {"step": 4, "story": "System detects risk", "action": "Pre-emptive alert on the scheduled event, then demand-anomaly alert → incident", "needs": ["P2-T5", "P2-T6", "P4-T3"]},
-      {"step": 5, "story": "Intelligence predicts shortage", "action": "Mirpur petrol time-to-stockout drops; P(stockout) chart rises", "needs": ["P2-T4", "P4-T2"]},
-      {"step": 6, "story": "Allocation recommendation generated", "action": "LP proposes Gazipur→Mirpur shipment; binding constraint shown", "needs": ["P3-T2"]},
-      {"step": 7, "story": "Operator inspects recommendation", "action": "Recommendation card with signals, constraints, confidence, alternatives, explanation → Approve", "needs": ["P4-T4", "P5-T2"]},
-      {"step": 8, "story": "Allocation is simulated", "action": "What-if risk before → after; submit; PENDING → IN_TRANSIT → ARRIVED", "needs": ["P3-T3", "P3-T5"]},
-      {"step": 9, "story": "Crisis event occurs", "action": "route_disruption on route-gazipur-mirpur + shipment_delay at Gazipur", "needs": ["P4-T8", "P7-T1"]},
-      {"step": 10, "story": "System adapts", "action": "Reroute via route-patiya-mirpur; Tongi prioritised; incident summary updated", "needs": ["P3-T2", "P5-T3"]},
-      {"step": 11, "story": "Application or dependency failure injected", "action": "docker stop intelligence + simulator error_rate fault (0.5, 60 s)", "needs": ["P7-T2"]},
-      {"step": 12, "story": "Monitoring detects failure", "action": "Grafana alerts fire; health board amber; breaker OPEN", "needs": ["P6-T3", "P6-T4", "P4-T7"]},
-      {"step": 13, "story": "Fallback / recovery activates", "action": "Heuristic recommendations tagged fallback; degraded banner; retries visible", "needs": ["P3-T7", "P4-T9"]},
-      {"step": 14, "story": "Operations continue", "action": "Restart intelligence, fault expires, breakers close, LP resumes, service level recovers", "needs": ["P3-T7", "P6-T3"]}
+      {
+        "step": 1,
+        "story": "Normal operations",
+        "action": "Simulation running; service level ≈ 1.0; all health components green",
+        "needs": ["I1-T6", "I3-T6"]
+      },
+      {
+        "step": 2,
+        "story": "Operator dashboard",
+        "action": "Network overview, inventory gauges, incoming supply, health board",
+        "needs": ["I1-T6", "I2-T8", "I3-T6"]
+      },
+      {
+        "step": 3,
+        "story": "Demand starts increasing",
+        "action": "Chaos panel: demand_spike on region-dhaka ×1.8 starting in 4 ticks (visible as SCHEDULED)",
+        "needs": ["I3-T6"]
+      },
+      {
+        "step": 4,
+        "story": "System detects risk",
+        "action": "Pre-emptive alert on the scheduled event, then demand-anomaly alert → incident",
+        "needs": ["I3-T4"]
+      },
+      {
+        "step": 5,
+        "story": "Intelligence predicts shortage",
+        "action": "Mirpur petrol time-to-stockout drops; P(stockout) chart rises",
+        "needs": ["I2-T2", "I2-T6"]
+      },
+      {
+        "step": 6,
+        "story": "Allocation recommendation generated",
+        "action": "Planner's plan: Gazipur→Mirpur shipments timed before the spike; binding constraint shown",
+        "needs": ["I2-T3"]
+      },
+      {
+        "step": 7,
+        "story": "Operator inspects recommendation",
+        "action": "Plan line card with signals, constraints, confidence, alternatives, explanation → Approve",
+        "needs": ["I2-T6", "I4-T2"]
+      },
+      {
+        "step": 8,
+        "story": "Allocation is simulated",
+        "action": "What-if risk before → after; submit; PENDING → IN_TRANSIT → ARRIVED",
+        "needs": ["I2-T4", "I1-T5"]
+      },
+      {
+        "step": 9,
+        "story": "Crisis event occurs",
+        "action": "route_disruption on route-gazipur-mirpur + shipment_delay at Gazipur",
+        "needs": ["I3-T6", "I4-T1"]
+      },
+      {
+        "step": 10,
+        "story": "System adapts",
+        "action": "Planner reroutes via route-patiya-mirpur, pre-stocks Tongi (single route); incident summary updated",
+        "needs": ["I2-T3", "I4-T2"]
+      },
+      {
+        "step": 11,
+        "story": "Application or dependency failure injected",
+        "action": "docker stop intelligence + simulator error_rate fault (0.5, 60 s)",
+        "needs": ["I3-T3", "I3-T6"]
+      },
+      {
+        "step": 12,
+        "story": "Monitoring detects failure",
+        "action": "Grafana alerts fire; health board amber; breaker OPEN",
+        "needs": ["I3-T5", "I3-T6"]
+      },
+      {
+        "step": 13,
+        "story": "Fallback / recovery activates",
+        "action": "Heuristic plans tagged fallback; degraded banner; retries visible",
+        "needs": ["I3-T1", "I3-T3"]
+      },
+      {
+        "step": 14,
+        "story": "Operations continue",
+        "action": "Restart intelligence, fault expires, breakers close, planner resumes, service level recovers",
+        "needs": ["I3-T3", "I3-T5"]
+      }
     ]
   },
-
   "simulator_contract": {
     "image": "asifmahmoud414/bup-fuel-supply-simulator:1.0.0",
     "base_url": "http://localhost:8000",
@@ -305,7 +1022,11 @@
       {"path": "GET /v1/events", "faults": true, "notes": "id-desc; status SCHEDULED|ACTIVE|RESOLVED"},
       {"path": "GET /v1/allocations", "faults": true, "notes": "id-desc; status PENDING|IN_TRANSIT|ARRIVED|FAILED|CANCELLED"},
       {"path": "GET /v1/demand-history?station_id=&limit=", "faults": true, "notes": "limit clamped 1-2000 (default 200); 12 rows per tick"},
-      {"path": "GET /v1/metrics", "faults": true, "notes": "served/unmet liters, service_level, allocation_liters (IN_TRANSIT+ARRIVED), allocation_failures"}
+      {
+        "path": "GET /v1/metrics",
+        "faults": true,
+        "notes": "served/unmet liters, service_level, allocation_liters (IN_TRANSIT+ARRIVED), allocation_failures"
+      }
     ],
     "write_endpoints": {
       "create_allocation": {
@@ -318,7 +1039,18 @@
           "fuel_type": "DIESEL | PETROL | OCTANE",
           "quantity": "float, > 0 and ≤ route.max_shipment"
         },
-        "validation_order": ["IDEMPOTENCY", "NOT_FOUND", "ROUTE_MISMATCH", "DEPOT_CLOSED", "STATION_CLOSED", "ROUTE_DISRUPTED", "ROUTE_CAPACITY_EXCEEDED", "INSUFFICIENT_INVENTORY", "DISPATCH_CAPACITY_EXCEEDED", "DESTINATION_CAPACITY_EXCEEDED"],
+        "validation_order": [
+          "IDEMPOTENCY",
+          "NOT_FOUND",
+          "ROUTE_MISMATCH",
+          "DEPOT_CLOSED",
+          "STATION_CLOSED",
+          "ROUTE_DISRUPTED",
+          "ROUTE_CAPACITY_EXCEEDED",
+          "INSUFFICIENT_INVENTORY",
+          "DISPATCH_CAPACITY_EXCEEDED",
+          "DESTINATION_CAPACITY_EXCEEDED"
+        ],
         "success": "201 Created, status PENDING",
         "idempotency": [
           "Same key + same body → existing allocation returned (guide says 201 in §5.4 and 200 in §9; accept both)",
@@ -326,10 +1058,7 @@
           "Cancellation does not free the key"
         ]
       },
-      "cancel_allocation": {
-        "path": "POST /v1/allocations/{id}/cancel",
-        "notes": "PENDING only; refunds depot inventory; 404 ALLOCATION_NOT_FOUND, 409 CANNOT_CANCEL"
-      }
+      "cancel_allocation": {"path": "POST /v1/allocations/{id}/cancel", "notes": "PENDING only; refunds depot inventory; 404 ALLOCATION_NOT_FOUND, 409 CANNOT_CANCEL"}
     },
     "error_codes": [
       {"http": 200, "code": null, "meaning": "Idempotent replay", "handling": "Continue"},
@@ -343,11 +1072,21 @@
       {"http": 409, "code": "ROUTE_DISRUPTED", "meaning": "Route not AVAILABLE", "handling": "Reroute"},
       {"http": 409, "code": "ROUTE_CAPACITY_EXCEEDED", "meaning": "quantity > max_shipment", "handling": "Split into smaller allocations"},
       {"http": 409, "code": "INSUFFICIENT_INVENTORY", "meaning": "Depot lacks the fuel", "handling": "Resync; reduce or wait for supply"},
-      {"http": 409, "code": "DISPATCH_CAPACITY_EXCEEDED", "meaning": "Depot's in-flight + pending this tick over capacity", "handling": "Defer to next tick"},
+      {
+        "http": 409,
+        "code": "DISPATCH_CAPACITY_EXCEEDED",
+        "meaning": "Depot's in-flight + pending this tick over capacity",
+        "handling": "Defer to next tick"
+      },
       {"http": 409, "code": "DESTINATION_CAPACITY_EXCEEDED", "meaning": "Station inventory + quantity > capacity", "handling": "Reduce to headroom"},
       {"http": 409, "code": "CANNOT_CANCEL", "meaning": "Allocation not PENDING", "handling": "Record and continue"},
       {"http": 422, "code": "(pydantic)", "meaning": "Bad enum, missing field, quantity ≤ 0, etc.", "handling": "Validate client-side first"},
-      {"http": 503, "code": "FAULT_INJECTED", "meaning": "unavailable / error_rate / stream_disconnect fault", "handling": "Backoff, retry, degraded mode"}
+      {
+        "http": 503,
+        "code": "FAULT_INJECTED",
+        "meaning": "unavailable / error_rate / stream_disconnect fault",
+        "handling": "Backoff, retry, degraded mode"
+      }
     ],
     "error_envelopes": {
       "domain": "{\"detail\": {\"code\": \"...\", \"message\": \"...\"}}",
@@ -362,7 +1101,11 @@
       "replay": "None (no Last-Event-ID); re-fetch state via REST after reconnect",
       "events": [
         {"name": "simulation.tick", "when": "End of every tick", "payload": "tick, sim_time"},
-        {"name": "allocation.status_changed", "when": "Allocation created / departed / arrived / failed / cancelled", "payload": "Full allocation object"},
+        {
+          "name": "allocation.status_changed",
+          "when": "Allocation created / departed / arrived / failed / cancelled",
+          "payload": "Full allocation object"
+        },
         {"name": "inventory.updated", "when": "Depot inventory changed", "payload": "entity_type depot, entity_id, inventory"},
         {"name": "simulator.notice", "when": "Reset or background-runner exception", "payload": "message (and level on errors)"}
       ]
@@ -381,12 +1124,27 @@
       {"path": "GET /admin/faults, GET /admin/events", "purpose": "Last 50 rows each"}
     ],
     "event_types": [
-      {"type": "demand_spike", "parameters": "multiplier (default 1.5), station_ids[], region_ids[]", "effect": "Multiplies station demand_multiplier", "on_resolve": "Divides by multiplier"},
+      {
+        "type": "demand_spike",
+        "parameters": "multiplier (default 1.5), station_ids[], region_ids[]",
+        "effect": "Multiplies station demand_multiplier",
+        "on_resolve": "Divides by multiplier"
+      },
       {"type": "route_disruption", "parameters": "route_ids[]", "effect": "Routes → DISRUPTED", "on_resolve": "Routes → AVAILABLE"},
       {"type": "station_outage", "parameters": "station_ids[]", "effect": "Stations → OUTAGE (served drops to 0)", "on_resolve": "Stations → OPEN"},
       {"type": "depot_constraint", "parameters": "depot_ids[]", "effect": "Depots → CONSTRAINED (still shippable)", "on_resolve": "Depots → OPEN"},
-      {"type": "shipment_delay", "parameters": "delay_ticks (default 2), depot_ids[], fuel_types[]", "effect": "SupplyArrival.planned_tick += delay_ticks, status DELAYED", "on_resolve": "One-shot, not undone"},
-      {"type": "supply_shortfall", "parameters": "factor (default 0.5), depot_ids[], fuel_types[]", "effect": "SupplyArrival.quantity *= factor", "on_resolve": "One-shot, not restored"}
+      {
+        "type": "shipment_delay",
+        "parameters": "delay_ticks (default 2), depot_ids[], fuel_types[]",
+        "effect": "SupplyArrival.planned_tick += delay_ticks, status DELAYED",
+        "on_resolve": "One-shot, not undone"
+      },
+      {
+        "type": "supply_shortfall",
+        "parameters": "factor (default 0.5), depot_ids[], fuel_types[]",
+        "effect": "SupplyArrival.quantity *= factor",
+        "on_resolve": "One-shot, not restored"
+      }
     ],
     "event_filter_rule": "Empty id or fuel_types lists mean the event applies to all entities of that type",
     "fault_types": [
@@ -399,18 +1157,54 @@
     "world": {
       "instance": {"scenario_id": "baseline", "seed": 12345, "start_sim_time": "2026-01-01T00:00:00+00:00", "tick_minutes": 15},
       "regions": [
-        {"id": "region-dhaka", "name": "Dhaka Division", "demand_factor": 1.00},
+        {"id": "region-dhaka", "name": "Dhaka Division", "demand_factor": 1.0},
         {"id": "region-chattogram", "name": "Chattogram Division", "demand_factor": 1.08}
       ],
       "depots": [
-        {"id": "depot-gazipur", "region": "region-dhaka", "dispatch_capacity_per_tick": 12000, "capacity": {"DIESEL": 90000, "PETROL": 70000, "OCTANE": 45000}, "initial_inventory": {"DIESEL": 60000, "PETROL": 45000, "OCTANE": 26000}},
-        {"id": "depot-patiya", "region": "region-chattogram", "dispatch_capacity_per_tick": 11000, "capacity": {"DIESEL": 85000, "PETROL": 65000, "OCTANE": 40000}, "initial_inventory": {"DIESEL": 55000, "PETROL": 42000, "OCTANE": 24000}}
+        {
+          "id": "depot-gazipur",
+          "region": "region-dhaka",
+          "dispatch_capacity_per_tick": 12000,
+          "capacity": {"DIESEL": 90000, "PETROL": 70000, "OCTANE": 45000},
+          "initial_inventory": {"DIESEL": 60000, "PETROL": 45000, "OCTANE": 26000}
+        },
+        {
+          "id": "depot-patiya",
+          "region": "region-chattogram",
+          "dispatch_capacity_per_tick": 11000,
+          "capacity": {"DIESEL": 85000, "PETROL": 65000, "OCTANE": 40000},
+          "initial_inventory": {"DIESEL": 55000, "PETROL": 42000, "OCTANE": 24000}
+        }
       ],
       "stations": [
-        {"id": "station-mirpur", "region": "region-dhaka", "demand_profile": "urban_high", "capacity": {"DIESEL": 15000, "PETROL": 14000, "OCTANE": 9000}, "initial_inventory": {"DIESEL": 9000, "PETROL": 9000, "OCTANE": 5000}},
-        {"id": "station-tongi", "region": "region-dhaka", "demand_profile": "industrial", "capacity": {"DIESEL": 18000, "PETROL": 9000, "OCTANE": 6000}, "initial_inventory": {"DIESEL": 11000, "PETROL": 6000, "OCTANE": 3500}},
-        {"id": "station-karnaphuli", "region": "region-chattogram", "demand_profile": "highway", "capacity": {"DIESEL": 14000, "PETROL": 15000, "OCTANE": 9000}, "initial_inventory": {"DIESEL": 8500, "PETROL": 9500, "OCTANE": 5200}},
-        {"id": "station-coxsbazar", "region": "region-chattogram", "demand_profile": "regional", "capacity": {"DIESEL": 12000, "PETROL": 12000, "OCTANE": 7000}, "initial_inventory": {"DIESEL": 7500, "PETROL": 7500, "OCTANE": 4200}}
+        {
+          "id": "station-mirpur",
+          "region": "region-dhaka",
+          "demand_profile": "urban_high",
+          "capacity": {"DIESEL": 15000, "PETROL": 14000, "OCTANE": 9000},
+          "initial_inventory": {"DIESEL": 9000, "PETROL": 9000, "OCTANE": 5000}
+        },
+        {
+          "id": "station-tongi",
+          "region": "region-dhaka",
+          "demand_profile": "industrial",
+          "capacity": {"DIESEL": 18000, "PETROL": 9000, "OCTANE": 6000},
+          "initial_inventory": {"DIESEL": 11000, "PETROL": 6000, "OCTANE": 3500}
+        },
+        {
+          "id": "station-karnaphuli",
+          "region": "region-chattogram",
+          "demand_profile": "highway",
+          "capacity": {"DIESEL": 14000, "PETROL": 15000, "OCTANE": 9000},
+          "initial_inventory": {"DIESEL": 8500, "PETROL": 9500, "OCTANE": 5200}
+        },
+        {
+          "id": "station-coxsbazar",
+          "region": "region-chattogram",
+          "demand_profile": "regional",
+          "capacity": {"DIESEL": 12000, "PETROL": 12000, "OCTANE": 7000},
+          "initial_inventory": {"DIESEL": 7500, "PETROL": 7500, "OCTANE": 4200}
+        }
       ],
       "routes": [
         {"id": "route-gazipur-mirpur", "depot": "depot-gazipur", "station": "station-mirpur", "transit_ticks": 2, "max_shipment": 7000},
@@ -421,241 +1215,717 @@
         {"id": "route-patiya-mirpur", "depot": "depot-patiya", "station": "station-mirpur", "transit_ticks": 4, "max_shipment": 5000}
       ],
       "demand_profiles_liters_per_day": [
-        {"profile": "urban_high", "DIESEL": 8500, "PETROL": 10500, "OCTANE": 5600, "noise": 0.10},
+        {"profile": "urban_high", "DIESEL": 8500, "PETROL": 10500, "OCTANE": 5600, "noise": 0.1},
         {"profile": "industrial", "DIESEL": 14000, "PETROL": 4500, "OCTANE": 2200, "noise": 0.08},
         {"profile": "highway", "DIESEL": 10500, "PETROL": 11000, "OCTANE": 6200, "noise": 0.12},
-        {"profile": "regional", "DIESEL": 7200, "PETROL": 7600, "OCTANE": 3600, "noise": 0.10}
+        {"profile": "regional", "DIESEL": 7200, "PETROL": 7600, "OCTANE": 3600, "noise": 0.1}
       ],
       "hour_of_day_factors": [
         {"profile": "industrial", "busy": "06:00-17:59", "busy_factor": 1.55, "off_peak_factor": 0.45},
         {"profile": "highway", "busy": "06-09 or 16-20", "busy_factor": 1.35, "off_peak_factor": 0.75},
-        {"profile": "urban_high", "busy": "07-09 or 16-20", "busy_factor": 1.45, "off_peak_factor": 0.70},
+        {"profile": "urban_high", "busy": "07-09 or 16-20", "busy_factor": 1.45, "off_peak_factor": 0.7},
         {"profile": "regional", "busy": "07:00-20:59", "busy_factor": 1.25, "off_peak_factor": 0.65}
       ],
       "supply_pattern": "22 arrivals: 4 initial-burst arrivals at ticks 12-20, then 18 recurring resupplies spaced 64 ticks (~16 h) apart, sized to about one day of regional demand"
     }
   },
-
   "domain_insights": [
-    {"id": "DI-01", "insight": "1 sim day = 96 ticks; at the default speed of 8 ticks/s a sim day passes in about 12 s of wall-clock time", "implication": "Decision cycle in milliseconds; LLM async only; demo at SIMULATION_SPEED 1-2; tests via pause + step"},
-    {"id": "DI-02", "insight": "Network demand ≈ 95,000 L/day vs depot stock ≈ 252,000 L (about 2.6 days)", "implication": "Depots are fine in baseline; supply delay/shortfall makes depot stock binding → risk-based rationing"},
-    {"id": "DI-03", "insight": "Initial station stock covers about 0.75-1.6 days; capacities ≈ 1-1.3 days of demand", "implication": "Stockouts on day 1 without action; roughly daily refills per (station, fuel)"},
-    {"id": "DI-04", "insight": "Strong, profile-specific hour-of-day factors (0.45-1.55); simulation starts at midnight", "implication": "Hour-aware forecasting; busy windows drive the first stockouts"},
-    {"id": "DI-05", "insight": "Tongi is reachable only from Gazipur; Cox's Bazar only from Patiya", "implication": "Single points of failure: pre-position stock when a disruption is scheduled; alert when no alternative route exists"},
-    {"id": "DI-06", "insight": "Cross-region routes gazipur→karnaphuli and patiya→mirpur (4 ticks, 5,000 L)", "implication": "The only reroute options"},
-    {"id": "DI-07", "insight": "DESTINATION_CAPACITY_EXCEEDED checks on-hand inventory only, not in-transit", "implication": "Plan with inventory position (on-hand + in-transit)"},
-    {"id": "DI-08", "insight": "Dispatch capacity 12,000 (Gazipur) / 11,000 (Patiya) L per tick", "implication": "Binding in bursts; spread shipments across ticks"},
-    {"id": "DI-09", "insight": "Events are visible in /v1/events as SCHEDULED before start_tick", "implication": "Proactive planning, not only reaction"},
-    {"id": "DI-10", "insight": "shipment_delay and supply_shortfall are one-shot and never undone", "implication": "Detect by diffing supply arrivals against first-seen values"},
-    {"id": "DI-11", "insight": "demand-history returns at most 2000 rows (about 166 ticks)", "implication": "Mirror history into Postgres every tick"}
-  ],
-
-  "open_questions": [
-    {"id": "Q-01", "question": "What happens when an arrival would overflow station capacity (capped, lost or rejected)?", "resolve_in": "P1-T7", "answer": null, "status": "open"},
-    {"id": "Q-02", "question": "Exact window of DISPATCH_CAPACITY_EXCEEDED ('in-flight + pending from this depot on this tick')", "resolve_in": "P1-T7", "answer": null, "status": "open"},
-    {"id": "Q-03", "question": "PENDING → IN_TRANSIT timing (example: created 5, departed 6, arrived 8 for transit 2)", "resolve_in": "P1-T7", "answer": null, "status": "open"},
-    {"id": "Q-04", "question": "Is demand recorded (as unmet) while a station is in OUTAGE?", "resolve_in": "P1-T7", "answer": null, "status": "open"},
-    {"id": "Q-05", "question": "Does depot_constraint reduce dispatch_capacity_per_tick numerically or only change status?", "resolve_in": "P1-T7", "answer": null, "status": "open"},
-    {"id": "Q-06", "question": "Idempotent replay returns 201 (§5.4) or 200 (§9)?", "resolve_in": "P1-T7", "answer": null, "status": "open"},
-    {"id": "Q-07", "question": "How are the 22 supply arrivals split across depots and fuels?", "resolve_in": "P1-T7", "answer": null, "status": "open"},
-    {"id": "Q-08", "question": "Does region demand_factor multiply the profile base demand as assumed?", "resolve_in": "P1-T7", "answer": null, "status": "open"}
-  ],
-
-  "iterations": [
     {
-      "id": "PLAN", "name": "Understand problem and plan", "priority": "must", "owners": ["All"], "depends_on": [],
-      "status": "in_progress",
-      "goal": "Shared understanding of the problem set and an agreed, grilled plan",
-      "tasks": [
-        {"id": "PLAN-T1", "title": "Read and understand both ProblemSet PDFs", "owner": "All", "priority": "must", "requirements": ["R-UND-01"], "status": "done", "evidence": ["plan.md §1"]},
-        {"id": "PLAN-T2", "title": "Write plan.md (phases, demo, traceability)", "owner": "All", "priority": "must", "requirements": ["R-UND-01"], "status": "done", "evidence": ["plan.md"]},
-        {"id": "PLAN-T3", "title": "Write architecture.md with system diagram", "owner": "All", "priority": "must", "requirements": ["R-UND-01"], "status": "done", "evidence": ["architecture.md"]},
-        {"id": "PLAN-T4", "title": "Write CLAUDE.md with hard rules and conventions", "owner": "All", "priority": "must", "requirements": ["R-UND-01"], "status": "done", "evidence": ["CLAUDE.md"]},
-        {"id": "PLAN-T5", "title": "Install grill-me skill (+ grilling dependency)", "owner": "All", "priority": "should", "requirements": ["R-UND-01"], "status": "done", "evidence": [".claude/skills/grill-me", ".claude/skills/grilling"]},
-        {"id": "PLAN-T6", "title": "Create plan.json tracker", "owner": "All", "priority": "should", "requirements": ["R-UND-01"], "status": "done", "evidence": ["plan.json"]},
-        {"id": "PLAN-T7", "title": "Run /grill-me on plan.md and record decisions", "owner": "All", "priority": "must", "requirements": ["R-UND-01"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["Docs committed", "/grill-me session finished and decisions recorded in decisions_log"]
+      "id": "DI-01",
+      "insight": "1 sim day = 96 ticks; at the default speed of 8 ticks/s a sim day passes in about 12 s of wall-clock time",
+      "implication": "Decision cycle in milliseconds; LLM async only; demo at SIMULATION_SPEED 1-2; tests via pause + step"
     },
     {
-      "id": "P0", "name": "Foundations", "priority": "must", "owners": ["DevOps"], "depends_on": ["PLAN"],
-      "status": "todo",
-      "goal": "Reproducible skeleton: every service starts healthy with one command and CI runs",
-      "tasks": [
-        {"id": "P0-T1", "title": "Scaffold repo folders (backend, intelligence, frontend, infra, loadtest, scenarios, scripts, docs)", "owner": "DevOps", "priority": "must", "requirements": ["R-DEVOPS-01"], "status": "todo", "evidence": []},
-        {"id": "P0-T2", "title": "docker-compose.yml: simulator + postgres + skeleton services, health checks, restart policies", "owner": "DevOps", "priority": "must", "requirements": ["R-DEVOPS-01", "R-ENV-02", "R-RES-05"], "status": "todo", "evidence": []},
-        {"id": "P0-T3", "title": ".env.example documenting every variable; .env gitignored", "owner": "DevOps", "priority": "must", "requirements": ["R-SEC-01", "R-SEC-04", "R-SEC-05"], "status": "todo", "evidence": []},
-        {"id": "P0-T4", "title": "CI skeleton: lint + unit tests on push/PR", "owner": "DevOps", "priority": "must", "requirements": ["R-DEVOPS-02", "R-DEVOPS-03"], "status": "todo", "evidence": []},
-        {"id": "P0-T5", "title": "Backend and intelligence FastAPI skeletons with /health; Vite frontend skeleton", "owner": "App", "priority": "must", "requirements": ["R-DEVOPS-01"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["docker compose up starts every service healthy", "curl :8000/v1/health returns ok", "CI green"]
+      "id": "DI-02",
+      "insight": "Network demand ≈ 95,000 L/day vs depot stock ≈ 252,000 L (about 2.6 days)",
+      "implication": "Depots are fine in baseline; supply delay/shortfall makes depot stock binding → risk-based rationing"
     },
     {
-      "id": "P1", "name": "Simulator integration and state", "priority": "must", "owners": ["App", "DevOps"], "depends_on": ["P0"],
-      "status": "todo",
-      "goal": "A resilient, always-current view of the simulated world, mirrored into our own database",
-      "tasks": [
-        {"id": "P1-T1", "title": "Pydantic models for every simulator schema", "owner": "App", "priority": "must", "requirements": ["R-SEC-02"], "status": "todo", "evidence": []},
-        {"id": "P1-T2", "title": "Async sim client: timeouts, retries with jitter, circuit breaker, error envelopes, stale header, response validation", "owner": "App", "priority": "must", "requirements": ["R-CAP-06", "R-CAP-08", "R-RES-02", "R-RES-04", "R-RES-05", "R-SEC-02", "R-SEC-03"], "status": "todo", "evidence": []},
-        {"id": "P1-T3", "title": "SSE listener: reconnect, watchdog for silent drop, polling fallback", "owner": "App", "priority": "must", "requirements": ["R-CAP-06", "R-RES-04"], "status": "todo", "evidence": []},
-        {"id": "P1-T4", "title": "Tick-driven state sync, world-state cache, reset detection / run epochs, DB-down buffering", "owner": "App", "priority": "must", "requirements": ["R-CAP-01", "R-PLAT-01", "R-DATA-01", "R-RES-04"], "status": "todo", "evidence": []},
-        {"id": "P1-T5", "title": "Postgres schema + Alembic; mirror demand history, snapshots, metrics, status changes", "owner": "App", "priority": "must", "requirements": ["R-PLAT-01", "R-DATA-01"], "status": "todo", "evidence": []},
-        {"id": "P1-T6", "title": "GET /api/state and /api/health", "owner": "App", "priority": "must", "requirements": ["R-HEALTH-01"], "status": "todo", "evidence": []},
-        {"id": "P1-T7", "title": "Spike: answer open questions Q-01..Q-08 → docs/simulator-findings.md", "owner": "AI", "priority": "must", "requirements": ["R-ENV-02"], "status": "todo", "evidence": []},
-        {"id": "P1-T8", "title": "Integration test in CI against the real image (reset → allocate → step 3 → ARRIVED)", "owner": "DevOps", "priority": "must", "requirements": ["R-ENV-02"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["Integration test passes in CI against the real image", "Backend survives every fault type without crashing", "All open_questions answered"]
+      "id": "DI-03",
+      "insight": "Initial station stock covers about 0.75-1.6 days; capacities ≈ 1-1.3 days of demand",
+      "implication": "Stockouts on day 1 without action; roughly daily refills per (station, fuel)"
     },
     {
-      "id": "P2", "name": "Prediction and detection", "priority": "must", "owners": ["AI"], "depends_on": ["P1"],
-      "status": "todo",
-      "goal": "Forecast demand, score shortage risk and detect anomalies and disruptions",
-      "tasks": [
-        {"id": "P2-T1", "title": "Seasonal-naive forecaster (also embedded in backend as fallback)", "owner": "AI", "priority": "must", "requirements": ["R-INT-P1"], "status": "todo", "evidence": []},
-        {"id": "P2-T2", "title": "Seasonal baseline × demand_multiplier + LightGBM residual; train.py; versioned artifacts with metrics JSON", "owner": "AI", "priority": "must", "requirements": ["R-INT-01", "R-INT-P1", "R-PLAT-02"], "status": "todo", "evidence": []},
-        {"id": "P2-T3", "title": "Forecast storage + online MAE/MAPE per horizon", "owner": "AI", "priority": "must", "requirements": ["R-INT-P1", "R-OBS-03"], "status": "todo", "evidence": []},
-        {"id": "P2-T4", "title": "Risk scorer: inventory position, time-to-stockout, P(stockout) at 4/12/24 h, confidence", "owner": "AI", "priority": "must", "requirements": ["R-CAP-02", "R-INT-01", "R-INT-P2", "R-INT-P3", "R-PLAT-02"], "status": "todo", "evidence": []},
-        {"id": "P2-T5", "title": "Detectors: demand anomaly (z/CUSUM, regional), inventory anomaly, supply delay/shortfall, network status, scheduled events, dispatch bottleneck", "owner": "AI", "priority": "must", "requirements": ["R-CAP-02", "R-CAP-04", "R-INT-D1", "R-INT-D2", "R-INT-D3", "R-INT-D4", "R-PLAT-02", "R-ENV-01"], "status": "todo", "evidence": []},
-        {"id": "P2-T6", "title": "Alerts + incidents persisted and exposed via API", "owner": "App", "priority": "must", "requirements": ["R-CAP-02"], "status": "todo", "evidence": []},
-        {"id": "P2-T7", "title": "Supply ETA and delay prediction: expected arrival tick per supply arrival and shipment, delay likelihood from event history", "owner": "AI", "priority": "should", "requirements": ["R-INT-P4", "R-INT-P5"], "status": "todo", "evidence": [], "notes": "Gap found while mapping brief §7 to plan.md; added to plan.md Phase 2"}
-      ],
-      "done_when": ["Forecast MAPE reported per horizon", "demand_spike injection raises a regional alert within a few ticks", "Supply delay raises a supply-risk alert"]
+      "id": "DI-04",
+      "insight": "Strong, profile-specific hour-of-day factors (0.45-1.55); simulation starts at midnight",
+      "implication": "Hour-aware forecasting; busy windows drive the first stockouts"
     },
     {
-      "id": "P3", "name": "Decision engine", "priority": "must", "owners": ["AI", "App"], "depends_on": ["P2"],
-      "status": "todo",
-      "goal": "Explainable allocation recommendations, safely executed, with human review and automatic fallback",
-      "tasks": [
-        {"id": "P3-T1", "title": "Heuristic order-up-to policy (fallback + baseline) — first working auto loop", "owner": "AI", "priority": "must", "requirements": ["R-CAP-03", "R-INT-X2"], "status": "todo", "evidence": []},
-        {"id": "P3-T2", "title": "LP optimizer (OR-Tools) with risk weights, binding constraints and alternatives", "owner": "AI", "priority": "must", "requirements": ["R-CAP-03", "R-CAP-04", "R-CAP-05", "R-INT-01", "R-INT-X1", "R-INT-X3", "R-DS-01", "R-PLAT-03"], "status": "todo", "evidence": []},
-        {"id": "P3-T3", "title": "What-if projector: projected inventory and risk before → after", "owner": "AI", "priority": "must", "requirements": ["R-APP-10", "R-DS-01"], "status": "todo", "evidence": []},
-        {"id": "P3-T4", "title": "Recommendation lifecycle, expiry and decision audit trail", "owner": "App", "priority": "must", "requirements": ["R-PLAT-03"], "status": "todo", "evidence": []},
-        {"id": "P3-T5", "title": "Actuator: preflight, idempotency keys, splitting, 409 handling map", "owner": "App", "priority": "must", "requirements": ["R-SEC-03"], "status": "todo", "evidence": []},
-        {"id": "P3-T6", "title": "Manual / Assisted / Auto modes with confidence gate", "owner": "App", "priority": "must", "requirements": ["R-DS-02", "R-RES-03"], "status": "todo", "evidence": []},
-        {"id": "P3-T7", "title": "Automatic fallback to heuristic when intelligence fails (breaker + timeout)", "owner": "App", "priority": "must", "requirements": ["R-CAP-06", "R-RES-01", "R-RES-05", "R-INT-X4"], "status": "todo", "evidence": []},
-        {"id": "P3-T8", "title": "scripts/benchmark.py deterministic replay harness (no-action, naive, heuristic, LP)", "owner": "AI", "priority": "must", "requirements": ["R-INT-01"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["In Auto mode over 3 sim days the LP beats heuristic and no-action on service level (target ≥ 0.98, calibrate after spike)", "Zero 409s caused by our own bugs", "Fallback switches automatically when intelligence is stopped"]
+      "id": "DI-05",
+      "insight": "Tongi is reachable only from Gazipur; Cox's Bazar only from Patiya",
+      "implication": "Single points of failure: pre-position stock when a disruption is scheduled; alert when no alternative route exists"
     },
     {
-      "id": "P4", "name": "Operator console", "priority": "must", "owners": ["App"], "depends_on": ["P1"],
-      "status": "todo",
-      "goal": "An operator can run the whole workflow from the UI",
-      "tasks": [
-        {"id": "P4-T1", "title": "Network overview: schematic, per-fuel inventory, depot/station status, regional demand panel, disruptions, service level", "owner": "App", "priority": "must", "requirements": ["R-CAP-01", "R-APP-01", "R-APP-02", "R-APP-03", "R-APP-04", "R-APP-08", "R-PLAT-04"], "status": "todo", "evidence": [], "notes": "Regional demand panel added after mapping brief §6"},
-        {"id": "P4-T2", "title": "Station / depot detail: forecast vs actual with band, time-to-stockout, P(stockout)", "owner": "App", "priority": "must", "requirements": ["R-APP-02", "R-APP-04", "R-APP-06"], "status": "todo", "evidence": []},
-        {"id": "P4-T3", "title": "Alerts and incidents page", "owner": "App", "priority": "must", "requirements": ["R-APP-05", "R-APP-08", "R-APP-11"], "status": "todo", "evidence": []},
-        {"id": "P4-T4", "title": "Recommendation inspector: approve / modify (what-if) / reject", "owner": "App", "priority": "must", "requirements": ["R-CAP-03", "R-CAP-05", "R-APP-09", "R-APP-10", "R-DS-01", "R-PLAT-04"], "status": "todo", "evidence": []},
-        {"id": "P4-T5", "title": "Supply and shipments: arrival schedule, allocation ledger, cancel PENDING", "owner": "App", "priority": "must", "requirements": ["R-APP-07"], "status": "todo", "evidence": []},
-        {"id": "P4-T6", "title": "Decision history page", "owner": "App", "priority": "must", "requirements": ["R-APP-12", "R-DS-02"], "status": "todo", "evidence": []},
-        {"id": "P4-T7", "title": "System health page (component board, breakers, SSE mode, p95, error rate)", "owner": "App", "priority": "must", "requirements": ["R-APP-11", "R-APP-13", "R-HEALTH-01"], "status": "todo", "evidence": []},
-        {"id": "P4-T8", "title": "Chaos panel: inject events and faults, run / pause / step / reset", "owner": "App", "priority": "must", "requirements": ["R-PLAT-04"], "status": "todo", "evidence": []},
-        {"id": "P4-T9", "title": "Live updates via /api/stream, stale/degraded/fallback banners, SIMULATED DATA badge, operator token for mutating actions", "owner": "App", "priority": "must", "requirements": ["R-APP-01", "R-LOOP-02", "R-SEC-06"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["An operator can run the 14-step demo story from the UI (plus Grafana)"]
+      "id": "DI-06",
+      "insight": "Cross-region routes gazipur→karnaphuli and patiya→mirpur (4 ticks, 5,000 L)",
+      "implication": "The only reroute options"
     },
     {
-      "id": "P5", "name": "Generative AI assist", "priority": "should", "owners": ["AI"], "depends_on": ["P3"],
-      "status": "todo",
-      "goal": "Human-readable explanations and summaries that support the operational workflow",
-      "tasks": [
-        {"id": "P5-T1", "title": "Claude client: async, timeout, cache, metrics; grounded in structured state only", "owner": "AI", "priority": "should", "requirements": ["R-INT-G5"], "status": "todo", "evidence": []},
-        {"id": "P5-T2", "title": "Recommendation explanations", "owner": "AI", "priority": "should", "requirements": ["R-CAP-05", "R-INT-G4"], "status": "todo", "evidence": []},
-        {"id": "P5-T3", "title": "Incident summaries", "owner": "AI", "priority": "should", "requirements": ["R-INT-G1"], "status": "todo", "evidence": []},
-        {"id": "P5-T4", "title": "Network briefing + grounded investigation Q&A", "owner": "AI", "priority": "could", "requirements": ["R-INT-G2", "R-INT-G3"], "status": "todo", "evidence": []},
-        {"id": "P5-T5", "title": "Deterministic template fallback", "owner": "AI", "priority": "must", "requirements": ["R-INT-G4"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["Every recommendation has an explanation (LLM or template)", "Removing the API key changes only the explanation source"]
+      "id": "DI-07",
+      "insight": "DESTINATION_CAPACITY_EXCEEDED checks on-hand inventory only, not in-transit",
+      "implication": "Plan with inventory position (on-hand + in-transit)"
     },
     {
-      "id": "P6", "name": "Observability", "priority": "must", "owners": ["DevOps"], "depends_on": ["P1"],
-      "status": "todo",
-      "goal": "The team and the judges can see what the system is doing and whether it is healthy",
-      "tasks": [
-        {"id": "P6-T1", "title": "Prometheus metrics: app, integration, intelligence, business", "owner": "DevOps", "priority": "must", "requirements": ["R-CAP-06", "R-OBS-01", "R-OBS-03", "R-PLAT-05"], "status": "todo", "evidence": []},
-        {"id": "P6-T2", "title": "Structured JSON logs with run / tick / request ids and key events", "owner": "DevOps", "priority": "must", "requirements": ["R-OBS-04"], "status": "todo", "evidence": []},
-        {"id": "P6-T3", "title": "Grafana dashboards (Operations, Platform, Intelligence) provisioned as code", "owner": "DevOps", "priority": "must", "requirements": ["R-PLAT-05"], "status": "todo", "evidence": []},
-        {"id": "P6-T4", "title": "Prometheus alert rules", "owner": "DevOps", "priority": "must", "requirements": ["R-PLAT-05"], "status": "todo", "evidence": []},
-        {"id": "P6-T5", "title": "System metrics: CPU / memory via cAdvisor or docker stats", "owner": "DevOps", "priority": "should", "requirements": ["R-OBS-02"], "status": "todo", "evidence": []},
-        {"id": "P6-T6", "title": "UI health board fed by /api/health", "owner": "App", "priority": "must", "requirements": ["R-HEALTH-01", "R-PLAT-05"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["Injecting a fault visibly moves dashboard panels and fires the matching alert"]
+      "id": "DI-08",
+      "insight": "Shipments arrive 1 + transit_ticks after creation; dispatch capacity 12,000 (Gazipur) / 11,000 (Patiya) L per tick",
+      "implication": "Decisions must be timed across ticks → rolling-horizon planner, not a single-tick rule"
     },
     {
-      "id": "P7", "name": "Resilience hardening and crisis scenarios", "priority": "must", "owners": ["DevOps", "AI"], "depends_on": ["P3", "P6"],
-      "status": "todo",
-      "goal": "Every failure mode and crisis shows detect → degrade/respond → recover",
-      "tasks": [
-        {"id": "P7-T1", "title": "Scenario YAMLs for CR-01..CR-05 (+ baseline) and scripts/run_scenario.py", "owner": "DevOps", "priority": "must", "requirements": ["R-CAP-04", "R-CRISIS-01"], "status": "todo", "evidence": []},
-        {"id": "P7-T2", "title": "Chaos runs for every resilience_matrix row", "owner": "DevOps", "priority": "must", "requirements": ["R-CAP-06"], "status": "todo", "evidence": []},
-        {"id": "P7-T3", "title": "docs/resilience-evidence.md (screenshots, metrics, logs)", "owner": "DevOps", "priority": "must", "requirements": ["R-CRISIS-01"], "status": "todo", "evidence": []},
-        {"id": "P7-T4", "title": "Surprise-event drill: random organizer-style injections handled without code changes", "owner": "All", "priority": "must", "requirements": ["R-ENV-01"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["Each failure mode shows detect → degrade → recover without manual restarts", "Each crisis scenario shows detect, evaluate, respond, explain, monitor recovery"]
+      "id": "DI-09",
+      "insight": "Events are visible in /v1/events as SCHEDULED before start_tick",
+      "implication": "Proactive planning, not only reaction"
     },
     {
-      "id": "P8", "name": "Load testing", "priority": "must", "owners": ["DevOps"], "depends_on": ["P3", "P4"],
-      "status": "todo",
-      "goal": "Understand the behaviour and limits of the system under load",
-      "tasks": [
-        {"id": "P8-T1", "title": "Locust scenarios: dashboard read path, end-to-end decision request, intelligence endpoints", "owner": "DevOps", "priority": "must", "requirements": ["R-CAP-07", "R-LOAD-01"], "status": "todo", "evidence": []},
-        {"id": "P8-T2", "title": "Ramp runs (10 → 200 users) capturing latency percentiles, throughput, errors, CPU/memory", "owner": "DevOps", "priority": "must", "requirements": ["R-CAP-07", "R-LOAD-02"], "status": "todo", "evidence": []},
-        {"id": "P8-T3", "title": "docs/load-test-report.md: knee point, bottleneck, limits", "owner": "DevOps", "priority": "must", "requirements": ["R-CAP-07", "R-LOAD-02", "R-LOAD-03"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["Report shows avg/p50/p95/p99, throughput, error rate, concurrency, resource usage and explains the limits"]
+      "id": "DI-10",
+      "insight": "shipment_delay and supply_shortfall are one-shot and never undone",
+      "implication": "Detect by diffing supply arrivals against first-seen values"
     },
+    {"id": "DI-11", "insight": "demand-history returns at most 2000 rows (about 166 ticks)", "implication": "Mirror history into Postgres every tick"},
     {
-      "id": "P9", "name": "Delivery", "priority": "must", "owners": ["All"], "depends_on": ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"],
-      "status": "todo",
-      "goal": "Shippable, documented, rehearsed submission",
-      "tasks": [
-        {"id": "P9-T1", "title": "CD: build + push images to GHCR tagged by SHA; compose smoke-test job", "owner": "DevOps", "priority": "must", "requirements": ["R-DEVOPS-02", "R-DEVOPS-03"], "status": "todo", "evidence": []},
-        {"id": "P9-T2", "title": "Rollback procedure documented (image tag, model version, LP ↔ heuristic policy)", "owner": "DevOps", "priority": "must", "requirements": ["R-RES-05"], "status": "todo", "evidence": []},
-        {"id": "P9-T3", "title": "README: setup, configuration, run, demo; data sources and assumptions section", "owner": "All", "priority": "must", "requirements": ["R-DEVOPS-01", "R-DATA-02", "R-SEC-04"], "status": "todo", "evidence": [], "notes": "Data/assumptions documentation added after mapping brief §16 and §24"},
-        {"id": "P9-T4", "title": "Export architecture diagram image to docs/", "owner": "All", "priority": "must", "requirements": ["R-UND-01"], "status": "todo", "evidence": []},
-        {"id": "P9-T5", "title": "Run benchmark and write docs/benchmark.md", "owner": "AI", "priority": "must", "requirements": ["R-INT-01"], "status": "todo", "evidence": []},
-        {"id": "P9-T6", "title": "Demo rehearsal ×2 using demo_script, including a surprise-event drill", "owner": "All", "priority": "must", "requirements": ["R-LOOP-01", "R-LOOP-02"], "status": "todo", "evidence": []},
-        {"id": "P9-T7", "title": "Optional: RL policy vs heuristic/LP, K8s/Helm, Loki, tracing, multi-agent, drift detection", "owner": "All", "priority": "could", "requirements": ["R-INT-X5", "R-OBS-05"], "status": "todo", "evidence": []}
-      ],
-      "done_when": ["All required deliverables D-01..D-11 done with evidence", "Demo rehearsed twice"]
+      "id": "DI-12",
+      "insight": "Demand = base × region × hour-of-day × demand_multiplier × jitter; the multiplier is on /v1/stations and spikes are in /v1/events",
+      "implication": "A learned structural forecast reaches the jitter noise floor; the value is in timing and constraints (planner), not heavier ML"
     }
   ],
-
+  "open_questions": [
+    {
+      "id": "Q-01",
+      "question": "What happens when an arrival would overflow station capacity (capped, lost or rejected)?",
+      "resolve_in": "I1-T8",
+      "answer": null,
+      "status": "open"
+    },
+    {
+      "id": "Q-02",
+      "question": "Exact window of DISPATCH_CAPACITY_EXCEEDED ('in-flight + pending from this depot on this tick')",
+      "resolve_in": "I1-T8",
+      "answer": null,
+      "status": "open"
+    },
+    {
+      "id": "Q-03",
+      "question": "PENDING → IN_TRANSIT timing (example: created 5, departed 6, arrived 8 for transit 2)",
+      "resolve_in": "I1-T8",
+      "answer": null,
+      "status": "open"
+    },
+    {"id": "Q-04", "question": "Is demand recorded (as unmet) while a station is in OUTAGE?", "resolve_in": "I1-T8", "answer": null, "status": "open"},
+    {
+      "id": "Q-05",
+      "question": "Does depot_constraint reduce dispatch_capacity_per_tick numerically or only change status?",
+      "resolve_in": "I1-T8",
+      "answer": null,
+      "status": "open"
+    },
+    {"id": "Q-06", "question": "Idempotent replay returns 201 (§5.4) or 200 (§9)?", "resolve_in": "I1-T8", "answer": null, "status": "open"},
+    {
+      "id": "Q-07",
+      "question": "How are the 22 supply arrivals split across depots and fuels?",
+      "resolve_in": "I1-T8",
+      "answer": null,
+      "status": "open"
+    },
+    {
+      "id": "Q-08",
+      "question": "Does region demand_factor multiply the profile base demand as assumed?",
+      "resolve_in": "I1-T8",
+      "answer": null,
+      "status": "open"
+    },
+    {
+      "id": "Q-09",
+      "question": "How does the published profile map to per-tick demand (guide example ≈ 95 L at 03:00 for Mirpur diesel vs naive ≈ 62 L), and is the jitter independent per tick?",
+      "resolve_in": "I1-T8",
+      "answer": null,
+      "status": "open"
+    },
+    {
+      "id": "Q-10",
+      "question": "Team decision: is an Anthropic API key available at the venue, and which model for explanations (claude-opus-5-5 default vs faster claude-sonnet-5-5 / claude-haiku-4-5-20251001)?",
+      "resolve_in": "I4-T2",
+      "answer": null,
+      "status": "open"
+    }
+  ],
+  "iterations": [
+    {
+      "id": "PLAN",
+      "name": "Understand problem and plan",
+      "hours": "before build",
+      "priority": "must",
+      "owners": ["All"],
+      "depends_on": [],
+      "status": "in_progress",
+      "goal": "Shared understanding of the problem set and an agreed plan",
+      "tasks": [
+        {
+          "id": "PLAN-T1",
+          "title": "Read and understand both ProblemSet PDFs",
+          "owner": "All",
+          "priority": "must",
+          "requirements": ["R-UND-01"],
+          "status": "done",
+          "evidence": ["plan.md §1"]
+        },
+        {
+          "id": "PLAN-T2",
+          "title": "Write plan.md (phases, demo, traceability)",
+          "owner": "All",
+          "priority": "must",
+          "requirements": ["R-UND-01"],
+          "status": "done",
+          "evidence": ["plan.md"]
+        },
+        {
+          "id": "PLAN-T3",
+          "title": "Write architecture.md with system diagram",
+          "owner": "All",
+          "priority": "must",
+          "requirements": ["R-UND-01"],
+          "status": "done",
+          "evidence": ["architecture.md"]
+        },
+        {
+          "id": "PLAN-T4",
+          "title": "Write CLAUDE.md with hard rules and conventions",
+          "owner": "All",
+          "priority": "must",
+          "requirements": ["R-UND-01"],
+          "status": "done",
+          "evidence": ["CLAUDE.md"]
+        },
+        {
+          "id": "PLAN-T5",
+          "title": "Install grill-me skill (+ grilling dependency)",
+          "owner": "All",
+          "priority": "should",
+          "requirements": ["R-UND-01"],
+          "status": "done",
+          "evidence": [".claude/skills/grill-me", ".claude/skills/grilling"]
+        },
+        {
+          "id": "PLAN-T6",
+          "title": "Create plan.json tracker",
+          "owner": "All",
+          "priority": "should",
+          "requirements": ["R-UND-01"],
+          "status": "done",
+          "evidence": ["plan.json"]
+        },
+        {
+          "id": "PLAN-T7",
+          "title": "Run /grill-me on plan.md and record decisions",
+          "owner": "All",
+          "priority": "should",
+          "requirements": ["R-UND-01"],
+          "status": "todo",
+          "evidence": [],
+          "notes": "Main decisions were settled in the best-solution review (DEC-06..DEC-10); another grill pass is optional."
+        },
+        {
+          "id": "PLAN-T8",
+          "title": "Best-solution review: re-plan to vertical slices, rolling-horizon LP, structural forecast, 24 h scope",
+          "owner": "All",
+          "priority": "must",
+          "requirements": ["R-UND-01"],
+          "status": "done",
+          "evidence": ["plan.md §4", "architecture.md §5, §13"]
+        }
+      ],
+      "done_when": ["Docs committed", "Best-solution review decisions recorded", "Optional /grill-me pass done or dropped"]
+    },
+    {
+      "id": "I1",
+      "name": "Walking skeleton",
+      "hours": "0-6",
+      "priority": "must",
+      "owners": ["App", "AI", "DevOps"],
+      "depends_on": ["PLAN"],
+      "status": "todo",
+      "goal": "Fuel moves automatically end to end through every layer, however simple",
+      "tasks": [
+        {
+          "id": "I1-T1",
+          "title": "Scaffold: server/ (fuelops.backend, fuelops.intelligence, fuelops.shared, one Dockerfile), frontend/ (Vite), infra/, scenarios/, scripts/, loadtest/, docs/",
+          "owner": "DevOps",
+          "priority": "must",
+          "requirements": ["R-DEVOPS-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I1-T2",
+          "title": "docker-compose: simulator, postgres, backend, intelligence, frontend, prometheus, grafana; health checks; restart policies; .env.example",
+          "owner": "DevOps",
+          "priority": "must",
+          "requirements": ["R-DEVOPS-01", "R-ENV-02", "R-RES-05", "R-SEC-01", "R-SEC-04", "R-SEC-05"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I1-T3",
+          "title": "Pydantic simulator models + async client: timeouts, basic retry, error-envelope parsing, response validation",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-CAP-08", "R-RES-02", "R-SEC-02", "R-SEC-03"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I1-T4",
+          "title": "State sync (poll /v1/instance, resync per tick) + world cache + Postgres mirror (history, snapshots, metrics)",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-CAP-01", "R-PLAT-01", "R-DATA-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I1-T5",
+          "title": "Heuristic order-up-to policy + preflight + actuator (idempotency keys, splitting, 409 map), Auto mode",
+          "owner": "AI",
+          "priority": "must",
+          "requirements": ["R-CAP-03", "R-INT-X2", "R-SEC-03"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I1-T6",
+          "title": "/api/state + Overview view: inventory, statuses, regional demand, service level, incoming supply, recent allocations, SIMULATED DATA badge",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-CAP-01", "R-APP-01", "R-APP-02", "R-APP-03", "R-APP-04", "R-APP-07", "R-APP-08", "R-PLAT-04"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I1-T7",
+          "title": "CI: ruff, pytest, eslint/tsc, integration test against the real simulator image (reset → allocate → step → ARRIVED), docker build",
+          "owner": "DevOps",
+          "priority": "must",
+          "requirements": ["R-DEVOPS-02", "R-DEVOPS-03", "R-ENV-02"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I1-T8",
+          "title": "Spike: answer Q-01..Q-09 → docs/simulator-findings.md",
+          "owner": "AI",
+          "priority": "must",
+          "requirements": ["R-ENV-02", "R-UND-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I1-T9",
+          "title": "/metrics baseline: request rate, latency, errors",
+          "owner": "DevOps",
+          "priority": "must",
+          "requirements": ["R-OBS-01"],
+          "status": "todo",
+          "evidence": []
+        }
+      ],
+      "done_when": ["docker compose up → fuel moves automatically", "Heuristic beats no-action over 1 sim day (step mode)", "CI green", "Q-01..Q-09 answered"]
+    },
+    {
+      "id": "I2",
+      "name": "Decision intelligence",
+      "hours": "6-13",
+      "priority": "must",
+      "owners": ["AI", "App", "DevOps"],
+      "depends_on": ["I1"],
+      "status": "todo",
+      "goal": "Explained, approvable plans from the rolling-horizon planner that beat the heuristic",
+      "tasks": [
+        {
+          "id": "I2-T1",
+          "title": "Structural forecaster: spec prior → learned hour-of-day levels × demand_multiplier, σ from jitter, residual check, online MAE/MAPE vs noise floor, versioned params JSON",
+          "owner": "AI",
+          "priority": "must",
+          "requirements": ["R-INT-01", "R-INT-P1", "R-PLAT-02", "R-OBS-03"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I2-T2",
+          "title": "Risk scorer: inventory position, time-to-stockout, P(stockout) at 4/12/24 h, supply ETA, confidence",
+          "owner": "AI",
+          "priority": "must",
+          "requirements": ["R-CAP-02", "R-INT-P2", "R-INT-P3", "R-INT-P4", "R-PLAT-02"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I2-T3",
+          "title": "Rolling-horizon LP planner (H = 24 ticks; station/depot balance, dispatch caps, route/capacity limits, scheduled events; objective = unmet liters) with binding constraints, rationing and alternatives",
+          "owner": "AI",
+          "priority": "must",
+          "requirements": ["R-CAP-03", "R-CAP-04", "R-CAP-05", "R-INT-01", "R-INT-X1", "R-INT-X3", "R-INT-D3", "R-PLAT-03", "R-DS-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I2-T4",
+          "title": "What-if evaluator: no-action vs plan vs operator edit → risk before → after",
+          "owner": "AI",
+          "priority": "must",
+          "requirements": ["R-APP-10", "R-DS-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I2-T5",
+          "title": "Plans lifecycle: per-cycle plans, TTL, Manual/Assisted/Auto with confidence gate, batch approval, decision audit trail",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-DS-02", "R-RES-03", "R-PLAT-03"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I2-T6",
+          "title": "Plans view (line cards: why, signals, constraints, impact, confidence, alternatives; approve/modify/reject; mode switch; decision-history tab) + station drawer (forecast band, projected inventory, time-to-stockout)",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-CAP-03", "R-CAP-05", "R-APP-06", "R-APP-09", "R-APP-10", "R-APP-12", "R-DS-01", "R-DS-02", "R-PLAT-04"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I2-T7",
+          "title": "Benchmark harness scripts/benchmark.py: no-action vs heuristic vs planner, deterministic replay via reset + step",
+          "owner": "DevOps",
+          "priority": "must",
+          "requirements": ["R-INT-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I2-T8",
+          "title": "Supply & shipments view: arrival schedule with delays, allocation ledger, cancel PENDING",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-APP-07"],
+          "status": "todo",
+          "evidence": []
+        }
+      ],
+      "done_when": [
+        "Planner ≥ heuristic > no-action on the benchmark",
+        "Operator approves a plan in the UI and watches it arrive",
+        "Every plan line shows why, signals, constraints, impact, confidence, alternatives"
+      ]
+    },
+    {
+      "id": "I3",
+      "name": "Resilience and observability",
+      "hours": "13-18",
+      "priority": "must",
+      "owners": ["App", "AI", "DevOps"],
+      "depends_on": ["I2"],
+      "status": "todo",
+      "goal": "Every failure mode shows detect → degrade → recover, visibly (MVP line)",
+      "tasks": [
+        {
+          "id": "I3-T1",
+          "title": "Circuit breakers, retries with jitter, stale-data handling (blocks auto-approval), degraded mode on cached state",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-CAP-06", "R-RES-02", "R-RES-03", "R-RES-04", "R-RES-05"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I3-T2",
+          "title": "SSE listener (reconnect, watchdog) with polling fallback",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-CAP-06", "R-RES-04"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I3-T3",
+          "title": "Intelligence fallback (timeout + breaker → heuristic, tagged), reset detection / run epochs, DB-down degrade",
+          "owner": "AI",
+          "priority": "must",
+          "requirements": ["R-CAP-06", "R-RES-01", "R-RES-04", "R-INT-X4"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I3-T4",
+          "title": "Detectors + incidents (events, network status, supply delay/shortfall, demand residual, inventory delta) + Alerts & incidents view",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-CAP-02", "R-CAP-04", "R-INT-D1", "R-INT-D2", "R-INT-D4", "R-APP-05", "R-APP-08", "R-APP-11", "R-ENV-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I3-T5",
+          "title": "Prometheus metrics (integration, intelligence, business), JSON logs, one Grafana dashboard, 5 alert rules",
+          "owner": "DevOps",
+          "priority": "must",
+          "requirements": ["R-OBS-01", "R-OBS-03", "R-OBS-04", "R-PLAT-05"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I3-T6",
+          "title": "/api/health + Health view + chaos drawer + operator token + stale/degraded/fallback banners",
+          "owner": "App",
+          "priority": "must",
+          "requirements": ["R-HEALTH-01", "R-APP-11", "R-APP-13", "R-SEC-06", "R-PLAT-04", "R-PLAT-05", "R-LOOP-02"],
+          "status": "todo",
+          "evidence": []
+        }
+      ],
+      "done_when": ["Stopping intelligence and each simulator fault show detect → degrade → recover in UI and Grafana without manual restarts"]
+    },
+    {
+      "id": "I4",
+      "name": "Crisis, GenAI, load",
+      "hours": "18-21",
+      "priority": "must",
+      "owners": ["AI", "DevOps", "App"],
+      "depends_on": ["I3"],
+      "status": "todo",
+      "goal": "Crisis handling evidence, explanations and load-test evidence (partial allowed; feature freeze at hour 21)",
+      "tasks": [
+        {
+          "id": "I4-T1",
+          "title": "Scenario files (demand-spike, shipment-delay, depot-constraint, route-disruption, combined-crisis) + scripts/run_scenario.py; docs/resilience-evidence.md",
+          "owner": "DevOps",
+          "priority": "must",
+          "requirements": ["R-CAP-04", "R-CRISIS-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I4-T2",
+          "title": "Claude explanations for plans and incidents + network briefing (async, cached, timeout) with template fallback",
+          "owner": "AI",
+          "priority": "should",
+          "requirements": ["R-CAP-05", "R-INT-G1", "R-INT-G2", "R-INT-G4", "R-INT-G5"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I4-T3",
+          "title": "Locust: dashboard read path + end-to-end decision request; ramp; avg/p50/p95/p99, throughput, errors, docker stats; docs/load-test-report.md",
+          "owner": "DevOps",
+          "priority": "must",
+          "requirements": ["R-CAP-07", "R-LOAD-01", "R-LOAD-02", "R-LOAD-03", "R-OBS-02"],
+          "status": "todo",
+          "evidence": []
+        }
+      ],
+      "done_when": [
+        "Each crisis shows detect / evaluate / respond / explain / monitor recovery",
+        "Every plan has an explanation (LLM or template)",
+        "Load report explains the knee point and limits"
+      ]
+    },
+    {
+      "id": "I5",
+      "name": "Delivery",
+      "hours": "21-24",
+      "priority": "must",
+      "owners": ["All"],
+      "depends_on": ["I4"],
+      "status": "todo",
+      "goal": "Documented, evidenced, rehearsed submission with buffer for surprises",
+      "tasks": [
+        {
+          "id": "I5-T1",
+          "title": "README: setup, configuration, run, demo, data sources and assumptions; rollback procedure",
+          "owner": "All",
+          "priority": "must",
+          "requirements": ["R-DEVOPS-01", "R-DATA-02", "R-SEC-04", "R-RES-05"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I5-T2",
+          "title": "Architecture diagram export + docs index",
+          "owner": "All",
+          "priority": "must",
+          "requirements": ["R-UND-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I5-T3",
+          "title": "Demo rehearsal ×2 using demo_script, including a surprise-event drill",
+          "owner": "All",
+          "priority": "must",
+          "requirements": ["R-LOOP-01", "R-LOOP-02", "R-ENV-01"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "I5-T4",
+          "title": "Push images to GHCR tagged by SHA; compose smoke-test job",
+          "owner": "DevOps",
+          "priority": "should",
+          "requirements": ["R-DEVOPS-02", "R-DEVOPS-03"],
+          "status": "todo",
+          "evidence": []
+        }
+      ],
+      "done_when": ["All required deliverables D-01..D-11 done with evidence", "Demo rehearsed twice"]
+    },
+    {
+      "id": "OPT",
+      "name": "Optional extras",
+      "hours": "only if time remains",
+      "priority": "could",
+      "owners": ["All"],
+      "depends_on": ["I5"],
+      "status": "todo",
+      "goal": "Extras that meaningfully improve the solution; skip otherwise",
+      "tasks": [
+        {
+          "id": "OPT-T1",
+          "title": "Transport-delay prediction from event history",
+          "owner": "AI",
+          "priority": "could",
+          "requirements": ["R-INT-P5"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "OPT-T2",
+          "title": "Operator investigation Q&A grounded in current state",
+          "owner": "AI",
+          "priority": "could",
+          "requirements": ["R-INT-G3"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "OPT-T3",
+          "title": "RL policy benchmarked against heuristic and planner",
+          "owner": "AI",
+          "priority": "could",
+          "requirements": ["R-INT-X5"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "OPT-T4",
+          "title": "Distributed tracing / Loki / cAdvisor",
+          "owner": "DevOps",
+          "priority": "could",
+          "requirements": ["R-OBS-05", "R-OBS-02"],
+          "status": "todo",
+          "evidence": []
+        },
+        {
+          "id": "OPT-T5",
+          "title": "LightGBM residual model compared with the structural forecast",
+          "owner": "AI",
+          "priority": "could",
+          "requirements": ["R-INT-P1"],
+          "status": "todo",
+          "evidence": []
+        }
+      ],
+      "done_when": ["Each extra shows measurable value in the benchmark or demo"]
+    }
+  ],
   "benchmark": {
     "script": "scripts/benchmark.py",
     "method": "POST /admin/pause → /admin/reset → inject scenario → repeat 288 ticks (3 sim days): decision cycle in Auto mode → POST /admin/step; then read /v1/metrics",
-    "scenarios": ["baseline", "demand-spike", "route-disruption", "combined-crisis"],
-    "policies": ["no-action", "naive-threshold", "heuristic", "lp"],
+    "scenarios": ["baseline", "demand-spike", "combined-crisis"],
+    "policies": ["no-action", "heuristic", "planner"],
     "metrics": ["service_level", "unmet_demand_liters", "allocation_failures", "liters_shipped", "allocation_count", "stockout_hours"],
     "output": "docs/benchmark.md",
     "results": []
   },
-
   "risks": [
-    {"id": "RK-01", "risk": "Simulator semantics differ from our assumptions", "mitigation": "P1 spike, preflight, 409 handling, findings doc"},
-    {"id": "RK-02", "risk": "Simulation speed too fast for human approval", "mitigation": "Demo at speed 1-2; Assisted mode; recommendation expiry"},
-    {"id": "RK-03", "risk": "LLM latency, cost or outage", "mitigation": "Async, cached, timeout, templates; never on the decision path"},
-    {"id": "RK-04", "risk": "Over-engineering (K8s, RL) takes time from must-haves", "mitigation": "MVP line after P6; could items only after P9 core"},
-    {"id": "RK-05", "risk": "Frontend/backend contract drift", "mitigation": "OpenAPI-generated TypeScript types"},
-    {"id": "RK-06", "risk": "Surprise organizer events", "mitigation": "Generic event/incident handling from /v1/events + state diffs; drills (P7-T4)"},
-    {"id": "RK-07", "risk": "Windows/Docker environment differences", "mitigation": "Everything in containers; pinned versions; CI uses the same compose"},
+    {"id": "RK-01", "risk": "Simulator semantics differ from our assumptions", "mitigation": "I1 spike, preflight, 409 handling, findings doc"},
+    {
+      "id": "RK-02",
+      "risk": "Simulation speed too fast for human approval",
+      "mitigation": "Demo at speed 1-2; batch approval; Assisted mode; plan TTL"
+    },
+    {"id": "RK-03", "risk": "LLM latency, cost, outage or no API key", "mitigation": "Async, cached, timeout, templates; never on the decision path"},
+    {"id": "RK-04", "risk": "Running out of time", "mitigation": "Vertical slices, hard time boxes, MVP line at hour 18, feature freeze at hour 21"},
+    {
+      "id": "RK-05",
+      "risk": "Planner bugs (infeasible or odd plans)",
+      "mitigation": "Heuristic fallback, benchmark regression check, unit tests on small cases"
+    },
+    {"id": "RK-06", "risk": "Surprise organizer events", "mitigation": "Generic handling from /v1/events + state diffs; drill in I5-T3"},
+    {
+      "id": "RK-07",
+      "risk": "Windows/Docker environment differences",
+      "mitigation": "Everything in containers; pinned versions; CI uses the same compose"
+    },
     {"id": "RK-08", "risk": "History lost after simulator reset", "mitigation": "Run epochs in Postgres; mirror history every tick"}
   ],
-
   "decisions_log": [
-    {"id": "DEC-01", "date": "2026-09-29", "decision": "Stack: FastAPI (Python 3.11) backend and intelligence + React/Vite/TypeScript frontend", "by": "user"},
+    {
+      "id": "DEC-01",
+      "date": "2026-09-29",
+      "decision": "Stack: FastAPI (Python 3.11) backend and intelligence + React/Vite/TypeScript frontend",
+      "by": "user"
+    },
     {"id": "DEC-02", "date": "2026-09-29", "decision": "Generative AI: Claude API with deterministic template fallback", "by": "user"},
     {"id": "DEC-03", "date": "2026-09-29", "decision": "Commit the ProblemSet PDFs to the repository", "by": "user"},
-    {"id": "DEC-04", "date": "2026-09-29", "decision": "Idempotency key format fo-{run_id}-{recommendation_id}-{part} (avoids collisions across resets and regenerated recommendations)", "by": "team"},
-    {"id": "DEC-05", "date": "2026-09-29", "decision": "plan.json is the progress tracker: requirements + iterations in one file, updated as work proceeds", "by": "user"}
+    {
+      "id": "DEC-04",
+      "date": "2026-09-29",
+      "decision": "Idempotency key format fo-{run_id}-{plan_id}-{line}-{part} (no collisions across resets or regenerated plans)",
+      "by": "team"
+    },
+    {
+      "id": "DEC-05",
+      "date": "2026-09-29",
+      "decision": "plan.json is the progress tracker: requirements + iterations in one file, updated as work proceeds",
+      "by": "user"
+    },
+    {
+      "id": "DEC-06",
+      "date": "2026-09-29",
+      "decision": "Iterations are time-boxed vertical slices I1-I5, each ending with a runnable demo (replaces layer-by-layer P0-P9)",
+      "by": "user"
+    },
+    {
+      "id": "DEC-07",
+      "date": "2026-09-29",
+      "decision": "Allocation optimizer is a rolling-horizon LP (plan ~24 ticks, execute current tick, re-plan every tick; objective = unmet liters)",
+      "by": "user"
+    },
+    {
+      "id": "DEC-08",
+      "date": "2026-09-29",
+      "decision": "Demand forecast is a learned structural model (spec prior, hour-of-day × demand_multiplier); LightGBM becomes optional",
+      "by": "user"
+    },
+    {
+      "id": "DEC-09",
+      "date": "2026-09-29",
+      "decision": "Build window ≤ 24 h with 2-3 people: MVP line after I3 (hour 18), feature freeze hour 21",
+      "by": "user"
+    },
+    {
+      "id": "DEC-10",
+      "date": "2026-09-29",
+      "decision": "Follow-on scope cuts: one Python project/image for backend + intelligence; detectors in backend; no migration tool; five UI views; one Grafana dashboard; 5 alert rules; plans approved per cycle; Loki/cAdvisor/K8s dropped; task ids P0-P9 retired",
+      "by": "claude (derived from DEC-09; revisit with /grill-me if needed)"
+    }
   ],
-
   "progress": {
     "current_iteration": "PLAN",
-    "next_step": "PLAN-T7: run /grill-me on plan.md, then start P0",
-    "mvp_line": "After P6",
-    "iterations": {"total": 11, "done": 0, "in_progress": 1, "todo": 10},
+    "next_step": "Start I1 at hour 0: scaffold + compose (DevOps/App) while AI runs the I1-T8 spike",
+    "mvp_line": "After I3 (hour 18)",
+    "feature_freeze": "Hour 21",
+    "iterations": {"total": 7, "done": 0, "in_progress": 1, "todo": 6},
     "required_deliverables": {"total": 11, "done": 0, "in_progress": 2, "todo": 9},
-    "open_questions": {"total": 8, "answered": 0}
+    "open_questions": {"total": 10, "answered": 0}
   }
 }

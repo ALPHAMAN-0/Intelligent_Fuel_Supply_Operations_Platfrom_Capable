@@ -2,9 +2,9 @@
 
 > BUP CSE Fest 2026 Hackathon Finals (in association with Poridhi.io).
 > Design details: [`architecture.md`](architecture.md) · Working rules: [`CLAUDE.md`](CLAUDE.md) · Briefs: [`ProblemSet/`](ProblemSet/)
-> Progress tracker: [`plan.json`](plan.json) — requirement ids, task ids and status for every phase below.
+> Progress tracker: [`plan.json`](plan.json) — requirement ids, task ids and status for every iteration below.
 >
-> **Before coding:** run `/grill-me` on this plan and update it with the answers.
+> **Build window: ≤ 24 h, team of 2–3.** Work in time-boxed vertical slices; every slice ends with a runnable demo.
 
 ---
 
@@ -59,19 +59,20 @@ cope with an environment that changes.
 
 | Insight | Implication |
 |---|---|
-| 1 sim day = 96 ticks; at default speed 8 ticks/s a sim day passes in **~12 s** wall-clock | Decision cycle must be milliseconds; LLM is async only; demos run at `SIMULATION_SPEED=1–2`; tests use pause + `/admin/step` |
+| 1 sim day = 96 ticks; at default speed 8 ticks/s a sim day passes in **~12 s** wall-clock | Decision cycle must be milliseconds; LLM is async only; demos run at `SIMULATION_SPEED=1–2`; tests use pause + `/admin/step`; plans are approved in batches |
 | Network demand ≈ **95,000 L/day** (Dhaka ≈ 45k, Chattogram ≈ 50k with 1.08 factor) vs depot stock ≈ 252k L (~2.6 days) | Depots are fine in baseline; supply delay/shortfall events make depot stock the binding constraint → rationing by risk |
 | Initial station stock covers only **~0.75–1.6 days** (e.g. Karnaphuli diesel ≈ 18 h, Mirpur petrol < 1 day); capacities ≈ 1–1.3 days of demand | Stockouts appear on **day 1** without action; each (station, fuel) needs roughly daily refills → ~16+ shipments/day given 5–7k L `max_shipment` |
+| Demand = base × region × hour-of-day × `demand_multiplier` × jitter; the multiplier is on `/v1/stations`, spikes are in `/v1/events` | A learned **structural** forecast reaches the jitter noise floor; heavy ML adds little. The value is in timing and constraints (planner) |
 | Hour-of-day factors are strong (0.45–1.55) and profile-specific; sim starts at midnight (off-peak) | Forecast must be hour-aware; busy windows (06:00+) drive the first stockouts |
-| **Tongi is reachable only from Gazipur; Cox's Bazar only from Patiya** | Single points of failure → pre-position stock when a disruption is SCHEDULED; alert "no alternative route" |
+| **Tongi is reachable only from Gazipur; Cox's Bazar only from Patiya** | Single points of failure → pre-position stock before a scheduled disruption; alert "no alternative route" |
 | Cross-region routes `gazipur→karnaphuli`, `patiya→mirpur` (4 ticks, 5k L) | The only reroute options for disruptions and depot constraints |
+| Shipments arrive `1 + transit_ticks` after creation; dispatch capacity 12k / 11k L per tick | Decisions must be **timed across ticks** → rolling-horizon planner, not a single-tick rule |
 | `DESTINATION_CAPACITY_EXCEEDED` checks on-hand only, not in-transit | Planner must use inventory position (on-hand + in-transit) to avoid overfilling |
-| Dispatch capacity 12k (Gazipur) / 11k (Patiya) per tick | Binding in bursts (e.g. 7k + 6.5k in one tick) → spread shipments across ticks |
 | Events appear in `/v1/events` as `SCHEDULED` before `start_tick` | Proactive planning, not just reaction |
 | `shipment_delay` / `supply_shortfall` are one-shot and not undone | Detect by diffing supply arrivals against first-seen values |
 | `demand-history` returns ≤ 2000 rows (≈ 166 ticks) | Mirror into our DB every tick; never rely on the simulator for long history |
 
-### 1.4 Open questions — verify in the Phase 1 spike
+### 1.4 Open questions — verify in the I1 spike (task I1-T8)
 
 1. What happens when an arrival would overflow station capacity (capped, lost, or rejected)?
 2. Exact window of `DISPATCH_CAPACITY_EXCEEDED` ("in-flight + pending from this depot on this tick").
@@ -81,8 +82,11 @@ cope with an environment that changes.
 6. Idempotent replay: 201 (§5.4) or 200 (§9)? Handle both.
 7. How the 22 supply arrivals split across depots/fuels (read `/v1/supply-arrivals` at tick 0).
 8. Does region `demand_factor` multiply the profile base as assumed above?
+9. How does the published profile map to per-tick demand (the guide's example row, ≈ 95 L at 03:00 for Mirpur diesel,
+   does not match a naive ≈ 62 L), and is the jitter independent per tick?
 
-Record findings in `docs/simulator-findings.md` and update the optimizer constraints accordingly.
+Record findings in `docs/simulator-findings.md` and update the planner constraints accordingly.
+Open decision for the team: is an Anthropic API key available at the venue, and which model (see `plan.json` Q-10)?
 
 ---
 
@@ -91,122 +95,126 @@ Record findings in `docs/simulator-findings.md` and update the optimizer constra
 A docker-compose platform (see `architecture.md`):
 
 - **backend** (FastAPI): resilient simulator client, SSE listener with polling fallback, tick-driven state sync that
-  mirrors history into Postgres, decision orchestrator with Manual / Assisted / Auto modes, preflight-guarded actuator,
-  heuristic fallback policy, Claude-powered explanations with template fallback, operator API + SSE.
-- **intelligence** (FastAPI): hour-aware demand forecaster (seasonal baseline + LightGBM residual), risk scorer
-  (time-to-stockout, P(stockout)), anomaly/disruption detector, LP allocation optimizer, what-if projector.
-- **frontend** (React): network overview, station detail, alerts/incidents, recommendation inspector, supply &
-  shipments, decision history, system health, chaos panel.
-- **ops**: Postgres, Prometheus + Grafana (dashboards + alert rules), structured logs, Locust load tests,
-  GitHub Actions CI/CD to GHCR.
+  mirrors history into Postgres, detectors (alerts/incidents), decision orchestrator producing one **plan per
+  cycle** with Manual / Assisted / Auto approval, preflight-guarded actuator, heuristic fallback, Claude explanations
+  with template fallback, operator API + SSE.
+- **intelligence** (FastAPI, same Python project and image): structural demand forecaster, risk scorer
+  (time-to-stockout, P(stockout), supply ETA), **rolling-horizon LP planner** that times shipments across transit
+  lags, dispatch caps and scheduled disruptions, and a what-if evaluator using the same model.
+- **frontend** (React): Overview, Plans, Alerts & incidents, Supply & shipments, Health (+ chaos drawer).
+- **ops**: Postgres, Prometheus + one Grafana dashboard + 5 alert rules, structured logs, Locust load test,
+  GitHub Actions CI.
 
 ---
 
-## 3. Team roles
+## 3. Team and lanes (2–3 people)
 
-| Role | Owns |
+| Lane | Owns |
 |---|---|
-| **App** | Frontend console, backend `/api`, recommendation workflow UX |
-| **AI** | Intelligence service, forecasting/risk/detection/optimizer, benchmark, LLM prompts |
-| **DevOps** | Compose, CI/CD, observability stack, resilience/chaos scenarios, load testing |
+| **App (A)** | Simulator client, state sync, actuator, backend API, frontend |
+| **AI (B)** | Spike, forecaster, risk, planner, evaluator, benchmark, LLM explanations |
+| **DevOps (C)** | Scaffold, compose, CI, metrics/dashboard/alerts, chaos runs, scenarios, load test, evidence docs |
 
-Everyone: tests for their code, docs for their component, demo rehearsal.
+With **2 people**: A also takes scaffold, compose, CI and metrics; B also takes scenarios and the load test.
 
 ---
 
-## 4. Phases
+## 4. Iterations — vertical slices, time-boxed
 
-Priority: **M** = must (MVP), **S** = should, **C** = could. The MVP line is after Phase 6 — at that point every
-required deliverable exists in at least basic form.
+**Rules**
 
-### Phase 0 — Foundations (M) · DevOps
+1. Each iteration ends with a **runnable, demoable system on `main`** (walking skeleton first, then deepen).
+2. Time boxes are hard: if an iteration overruns, cut its *should/could* tasks — do not extend the box.
+3. Grill once up front (done: best-solution review) and again only when a surprise changes the plan.
+4. **MVP line after I3 (hour 18). Feature freeze at hour 21.** I4 may be partial.
+5. Track task status and evidence in `plan.json`.
 
-- Repo scaffold (`backend/`, `intelligence/`, `frontend/`, `infra/`, `loadtest/`, `scenarios/`, `docs/`).
-- `docker-compose.yml` with simulator + postgres + skeleton services and health checks; `.env.example`.
-- CI skeleton: lint + unit tests on push/PR.
-- **Done when:** `docker compose up` starts everything healthy; `curl :8000/v1/health` OK; CI green.
+| Iteration | Hours | Ends with (demoable) |
+|---|---|---|
+| **I1 Walking skeleton** | 0–6 | Fuel moves automatically end to end; heuristic beats no-action; CI green; spike answered |
+| **I2 Decision intelligence** | 6–13 | Explained, approvable plans from the rolling-horizon planner; benchmark shows it beats the heuristic |
+| **I3 Resilience & observability** | 13–18 | Detect → degrade → recover for every failure mode; alerts, Grafana, Health view, chaos drawer |
+| **I4 Crisis, GenAI, load** *(partial ok)* | 18–21 | Crisis scenarios, plan/incident explanations, load-test report |
+| **I5 Delivery** | 21–24 | README, evidence docs, rehearsed demo, buffer for surprise events |
 
-### Phase 1 — Simulator integration & state (M) · App + DevOps
+**Who does what in parallel**
 
-- Pydantic models for every simulator schema; typed async client with timeouts, retries, breaker, error-envelope
-  parsing, stale-header handling.
-- SSE listener (reconnect, watchdog, polling fallback); tick-driven resync; reset detection / run epochs.
-- Postgres schema + Alembic; mirror demand history, snapshots, metrics, status changes.
-- `GET /api/state`, `/api/health`.
-- **Spike:** answer §1.4 open questions with a scripted pause → allocate → step experiment.
-- **Done when:** integration test (reset → allocate → step 3 → ARRIVED) passes in CI against the real image;
-  backend survives each fault type without crashing.
+| | App (A) | AI (B) | DevOps (C) |
+|---|---|---|---|
+| I1 | Sim client, state sync, actuator, Overview | Spike (Q-01..Q-09), heuristic policy | Scaffold, compose, CI + integration test, `/metrics` |
+| I2 | Plans lifecycle + modes, Plans and Supply views | Forecaster, risk, planner, evaluator | Benchmark harness, metrics wiring |
+| I3 | Breakers, SSE fallback, detectors, Health view + chaos drawer | Fallback path, detector tuning | Grafana dashboard, alert rules, logs, chaos runs |
+| I4 | UI polish, explanation display | Claude explanations + templates | Scenarios, load test + report |
+| I5 | README | Benchmark doc | Evidence docs, demo rehearsal |
 
-### Phase 2 — Prediction & detection (M) · AI
+### I1 — Walking skeleton (hours 0–6) · must
 
-- Seasonal-naive forecaster (also backend fallback) → seasonal baseline × multiplier → LightGBM residual model.
-- Forecast storage + online MAE/MAPE; `train.py` + versioned artifacts (`models/forecast-<ver>.{pkl,json}`).
-- Risk scorer: inventory position, time-to-stockout, P(stockout) at 4/12/24 h; confidence score.
-- Detectors: demand anomaly (z/CUSUM, regional correlation), supply delay/shortfall diff, network status changes,
-  scheduled events, dispatch bottleneck.
-- Alerts + incidents persisted and exposed via API.
-- (S) Supply ETA and delay prediction: expected arrival tick per supply arrival/shipment, delay likelihood from
-  event history (brief §7 "estimated supply arrival", "transport delay prediction").
-- **Done when:** forecast MAPE reported per horizon; a demand_spike injection raises a regional alert within a few
-  ticks; supply delay raises a supply-risk alert.
+- I1-T1 Scaffold: `server/` (one Python project: `fuelops.backend`, `fuelops.intelligence`, `fuelops.shared`),
+  `frontend/` (Vite), `infra/`, `scenarios/`, `scripts/`, `loadtest/`, `docs/`.
+- I1-T2 `docker-compose.yml` (simulator, postgres, backend, intelligence, frontend, prometheus, grafana) with health
+  checks and restart policies; `.env.example`.
+- I1-T3 Pydantic simulator models + async client (timeouts, basic retry, error-envelope parsing, response validation).
+- I1-T4 State sync (poll `/v1/instance`, resync per tick) + world cache + Postgres mirror (history, snapshots, metrics).
+- I1-T5 Heuristic order-up-to policy + preflight + actuator (idempotency keys, splitting, 409 map), Auto mode.
+- I1-T6 `/api/state` + Overview view (inventory, statuses, regional demand, service level, incoming supply,
+  recent allocations, `SIMULATED DATA` badge).
+- I1-T7 CI: ruff, pytest, eslint/tsc, integration test against the real simulator image, docker build.
+- I1-T8 Spike: answer Q-01..Q-09 → `docs/simulator-findings.md`.
+- I1-T9 `/metrics` baseline (request rate, latency, errors).
+- **Done when:** `docker compose up` → fuel moves automatically; heuristic beats no-action over 1 sim day (step
+  mode); CI green; spike answered.
 
-### Phase 3 — Decision engine (M) · AI + App
+### I2 — Decision intelligence (hours 6–13) · must
 
-- Heuristic order-up-to policy (backend) — first working auto loop.
-- LP optimizer (OR-Tools) with binding-constraint and alternatives output; what-if projector.
-- Recommendation lifecycle (PROPOSED → … → ARRIVED/FAILED), expiry, preflight, idempotency keys, 409 handling map.
-- Modes: Manual / Assisted / Auto; decision audit trail.
-- **Done when:** in Auto mode over 3 sim days (baseline) the LP beats the heuristic and no-action baselines on
-  service level (target ≥ 0.98, calibrate after the spike) with zero 409s caused by our own bugs; fallback switches
-  automatically when intelligence is stopped.
+- I2-T1 Structural forecaster (spec prior → learned hour-of-day levels × `demand_multiplier`, σ from jitter,
+  residual check, online MAE/MAPE vs noise floor, versioned params JSON).
+- I2-T2 Risk scorer: inventory position, time-to-stockout, P(stockout) at 4/12/24 h, supply ETA, confidence.
+- I2-T3 Rolling-horizon LP planner (H = 24 ticks; station/depot balance, dispatch caps, route/capacity limits,
+  scheduled events; objective = unmet liters) with binding constraints, rationing and alternatives.
+- I2-T4 What-if evaluator (no-action vs plan vs operator edit → risk before → after).
+- I2-T5 Plans lifecycle: per-cycle plans, TTL, Manual/Assisted/Auto with confidence gate, batch approval, audit trail.
+- I2-T6 Plans view (line cards with reasoning, approve/modify/reject, mode switch, decision-history tab) + station
+  drawer (forecast band, projected inventory, time-to-stockout).
+- I2-T7 Benchmark harness (`scripts/benchmark.py`): no-action vs heuristic vs planner, deterministic replay.
+- I2-T8 Supply & shipments view (arrival schedule with delays, allocation ledger, cancel PENDING).
+- **Done when:** planner ≥ heuristic > no-action on the benchmark; an operator approves a plan in the UI and watches
+  it arrive; every plan line shows why, signals, constraints, impact, confidence, alternatives.
 
-### Phase 4 — Operator console (M) · App
+### I3 — Resilience & observability (hours 13–18) · must
 
-- Network overview (incl. regional demand panel), station/depot detail with forecast charts, alerts & incidents,
-  recommendation inspector (approve / modify with what-if / reject), supply & shipments (cancel PENDING), decision
-  history, system health, chaos panel. Live updates via `/api/stream`. Stale/degraded/fallback banners. `SIMULATED DATA` badge.
-- **Done when:** an operator can run the 14-step demo story entirely from the UI (plus Grafana).
+- I3-T1 Circuit breakers, retries with jitter, stale-data handling (blocks auto-approval), degraded mode.
+- I3-T2 SSE listener (reconnect, watchdog) with polling fallback.
+- I3-T3 Intelligence fallback (timeout + breaker → heuristic, tagged), reset detection / run epochs, DB-down degrade.
+- I3-T4 Detectors + incidents (events, network status, supply delay/shortfall, demand residual, inventory delta) +
+  Alerts & incidents view.
+- I3-T5 Prometheus metrics (integration, intelligence, business), JSON logs, one Grafana dashboard, 5 alert rules.
+- I3-T6 `/api/health` + Health view + chaos drawer + operator token + stale/degraded/fallback banners.
+- **Done when:** stopping intelligence and each simulator fault show detect → degrade → recover in the UI and
+  Grafana without manual restarts. **← MVP line**
 
-### Phase 5 — Generative AI assist (S) · AI
+### I4 — Crisis, GenAI, load (hours 18–21) · must, partial allowed
 
-- Claude explanations for recommendations, incident summaries, network briefing, grounded "ask" endpoint.
-- Template fallback, caching, timeouts, metrics (`llm_requests_total{outcome}`, latency).
-- **Done when:** every recommendation has an explanation (LLM or template); removing the API key changes only the
-  explanation source.
+- I4-T1 Scenario files (`scenarios/*.yaml`: demand-spike, shipment-delay, depot-constraint, route-disruption,
+  combined-crisis) + `scripts/run_scenario.py`; record evidence in `docs/resilience-evidence.md`.
+- I4-T2 Claude explanations for plans and incidents + network briefing (async, cached, timeout) with template fallback.
+- I4-T3 Locust: dashboard read path + end-to-end decision request; ramp; avg/p50/p95/p99, throughput, errors,
+  `docker stats`; `docs/load-test-report.md` explaining limits.
+- **Done when:** each crisis shows detect / evaluate / respond / explain / monitor recovery; every plan has an
+  explanation (LLM or template); the load report explains the knee point. **Feature freeze at hour 21.**
 
-### Phase 6 — Observability (M) · DevOps
+### I5 — Delivery (hours 21–24) · must
 
-- Prometheus metrics (app, integration, intelligence, business); JSON logs with run/tick/request ids.
-- Grafana dashboards (Operations, Platform, Intelligence) + Prometheus alert rules, provisioned as code.
-- UI health board fed by `/api/health`.
-- **Done when:** injecting a fault visibly moves dashboard panels and fires the matching alert.
+- I5-T1 README (setup, configuration, run, demo, data sources and assumptions) + rollback procedure.
+- I5-T2 Architecture diagram export + docs index.
+- I5-T3 Demo rehearsal ×2 with §5, including a surprise-event drill; keep the rest as buffer.
+- I5-T4 *(should)* Push images to GHCR tagged by SHA; compose smoke-test job.
 
-**——— MVP line ———**
+### Optional (could — only if time remains after I5 core)
 
-### Phase 7 — Resilience hardening & crisis scenarios (M) · DevOps + AI
-
-- Scenario files `scenarios/*.yaml` (baseline, demand-spike, shipment-delay, depot-constraint, route-disruption,
-  combined-crisis) + `scripts/run_scenario.py` that injects them via `/admin/events` at given ticks.
-- Chaos runs for every row of the resilience matrix (`architecture.md` §9); record evidence (screenshots, metrics,
-  logs) in `docs/resilience-evidence.md`.
-- **Done when:** each failure mode shows detect → degrade → recover without manual restarts.
-
-### Phase 8 — Load testing (M) · DevOps
-
-- Locust scenarios: dashboard read path (`GET /api/state`, `/api/risks`), end-to-end decision request
-  (`POST /api/recommendations/compute` without LLM), intelligence `/forecast` + `/optimize`.
-- Ramp concurrency (e.g. 10 → 50 → 100 → 200 users); report avg, p50, p95, p99, throughput, error rate,
-  concurrency, CPU/memory (docker stats / cAdvisor); find the knee point and explain the bottleneck.
-- Results in `loadtest/results/` + `docs/load-test-report.md`.
-- **Done when:** report shows limits and behaviour, not just a number.
-
-### Phase 9 — Delivery (M) · all
-
-- CD: build + push images to GHCR tagged by SHA; compose smoke test job; rollback procedure documented.
-- README (setup, config, run, demo, data sources and assumptions — brief §16/§24), architecture diagram export,
-  docs index.
-- Benchmark report (§6). Demo rehearsal ×2 with the script in §5, including a surprise-event drill.
-- **C:** RL policy vs heuristic/LP, K8s/Helm manifests, Loki, multi-agent decision system, drift detection.
+Transport-delay prediction · operator investigation Q&A · RL policy vs planner · tracing / Loki / cAdvisor ·
+LightGBM comparison against the structural forecast.
+**Dropped for this build:** Kubernetes/Helm, multi-agent systems, drift detection, migration tooling, multiple
+dashboards, DB write-buffer replay.
 
 ---
 
@@ -217,39 +225,39 @@ Setup: `SIMULATION_SPEED=1`, mode **Assisted**, UI + Grafana side by side.
 | # | Story step | What we do / show |
 |---|---|---|
 | 1 | Normal operations | Simulation running; service level ≈ 1.0; all health components green |
-| 2 | Operator dashboard | Network overview, inventory gauges, incoming supply, health board |
-| 3 | Demand starts increasing | Chaos panel: `demand_spike` on `region-dhaka`, ×1.8, starting in 4 ticks (appears as SCHEDULED) |
-| 4 | System detects risk | Pre-emptive alert on the scheduled event, then demand-anomaly alert (residual z > 3 at Mirpur/Tongi) → incident |
-| 5 | Intelligence predicts shortage | Mirpur petrol time-to-stockout drops (e.g. 14 h → 5 h); P(stockout) chart rises |
-| 6 | Recommendation generated | LP proposes direct Gazipur→Mirpur shipment + extra cover; binding constraint = dispatch capacity |
-| 7 | Operator inspects | Recommendation card: signals, constraints, confidence, alternatives, Claude explanation → Approve |
+| 2 | Operator dashboard | Overview: inventory gauges, regional demand, incoming supply, health board |
+| 3 | Demand starts increasing | Chaos drawer: `demand_spike` on `region-dhaka`, ×1.8, starting in 4 ticks (appears as SCHEDULED) |
+| 4 | System detects risk | Pre-emptive alert on the scheduled event → incident; residual alert if demand moves beyond the multiplier |
+| 5 | Intelligence predicts shortage | Mirpur petrol time-to-stockout drops; P(stockout) and projected inventory in the station drawer |
+| 6 | Recommendation generated | Planner's plan: Gazipur→Mirpur shipments timed before the spike; binding constraint = dispatch cap |
+| 7 | Operator inspects | Plan line card: signals, constraints, confidence, alternatives, explanation → Approve |
 | 8 | Allocation is simulated | What-if risk before → after; submit; watch PENDING → IN_TRANSIT → ARRIVED |
 | 9 | Crisis event occurs | `route_disruption` on `route-gazipur-mirpur` + `shipment_delay` at Gazipur (combined crisis) |
-| 10 | System adapts | Reroute via `route-patiya-mirpur`; Tongi (single-route) prioritised; incident summary updated |
+| 10 | System adapts | Planner reroutes via `route-patiya-mirpur`, pre-stocks Tongi (single route); incident summary updated |
 | 11 | Failure injected | `docker stop intelligence` and a simulator `error_rate` fault (0.5, 60 s) |
-| 12 | Monitoring detects | Grafana `IntelligenceDown` / `SimulatorApiDegraded` fire; health board amber; breaker OPEN |
-| 13 | Fallback activates | Heuristic recommendations tagged `fallback`; cached state with degraded banner; retries visible |
-| 14 | Operations continue | Restart intelligence, fault expires → breakers close, LP resumes, service level recovers |
+| 12 | Monitoring detects | Grafana `IntelligenceDown` / `SimulatorApiDegraded` fire; Health view amber; breaker OPEN |
+| 13 | Fallback activates | Heuristic plans tagged `fallback`; cached state with degraded banner; retries visible |
+| 14 | Operations continue | Restart intelligence, fault expires → breakers close, planner resumes, service level recovers |
 
-Surprise-event drill: any organizer-injected event must show up in the UI within one sync cycle, be classified into an
-incident, and trigger re-optimization — rehearse with random scenario injections.
+Surprise-event drill: any organizer-injected event must appear in the UI within one sync cycle, open an incident and
+change the next plan — rehearse with random injections.
 
 ---
 
 ## 6. Decision-quality benchmark
 
-`scripts/benchmark.py` — deterministic replay for fair comparison:
+`scripts/benchmark.py` — deterministic replay for a fair comparison:
 
 ```
-for scenario in [baseline, demand-spike, route-disruption, combined-crisis]:
-  for policy in [no-action, naive-threshold, heuristic, lp]:
+for scenario in [baseline, demand-spike, combined-crisis]:
+  for policy in [no-action, heuristic, planner]:
     POST /admin/pause ; POST /admin/reset ; inject scenario events
     repeat 288 ticks (3 sim days): decision cycle (Auto mode) → POST /admin/step
     record /v1/metrics: service_level, unmet liters, allocation_failures, liters shipped, #allocations, stockout-hours
 ```
 
-Output: `docs/benchmark.md` table + chart. This is the evidence for "Intelligence & Decision Quality" and the
-required justification if RL is attempted (RL must beat the heuristic here to be worth showing).
+Output: `docs/benchmark.md` table. This is the evidence for "Intelligence & Decision Quality" (and the bar any
+optional RL policy must clear).
 
 ---
 
@@ -257,46 +265,46 @@ required justification if RL is attempted (RL must beat the heuristic here to be
 
 ### 7.1 Required deliverables (brief §19)
 
-| # | Deliverable | Where / how | Phase |
+| # | Deliverable | Where / how | Iteration |
 |---|---|---|---|
-| 1 | Working application | `docker compose up` → full platform | 0–4 |
-| 2 | Source repository | This repo: code, README, `.env.example`, deployment docs | 0, 9 |
-| 3 | Simulator integration | `backend/app/integration`, state sync, actuator | 1 |
-| 4 | Intelligence component | `intelligence/` forecaster, risk, detection, LP optimizer | 2–3 |
-| 5 | Operator interface | `frontend/` console | 4 |
-| 6 | Architecture diagram | `architecture.md` §2 (mermaid) + exported PNG in `docs/` | 0, 9 |
-| 7 | Deployment | docker-compose, GHCR images, CI/CD | 0, 9 |
-| 8 | Observability evidence | Grafana dashboards, alert rules, logs, health board | 6 |
-| 9 | Resilience demonstration | Chaos scenarios + `docs/resilience-evidence.md` | 7 |
-| 10 | Load-test evidence | `loadtest/` + `docs/load-test-report.md` | 8 |
-| 11 | Final demo | §5 script, rehearsed | 9 |
+| 1 | Working application | `docker compose up` → full platform | I1–I3 |
+| 2 | Source repository | This repo: code, README, `.env.example`, deployment docs | I1, I5 |
+| 3 | Simulator integration | `fuelops.backend.integration`, state sync, actuator | I1, I3 |
+| 4 | Intelligence component | Forecaster, risk scorer, rolling-horizon planner, detectors | I2, I3 |
+| 5 | Operator interface | `frontend/` five views | I1–I3 |
+| 6 | Architecture diagram | `architecture.md` §2 (mermaid) + exported image in `docs/` | PLAN, I5 |
+| 7 | Deployment | docker-compose, CI, versioned images | I1, I5 |
+| 8 | Observability evidence | Grafana dashboard, alert rules, logs, Health view | I3 |
+| 9 | Resilience demonstration | Chaos runs + crisis scenarios + `docs/resilience-evidence.md` | I3, I4 |
+| 10 | Load-test evidence | `loadtest/` + `docs/load-test-report.md` | I4 |
+| 11 | Final demo | §5 script, rehearsed | I5 |
 
 ### 7.2 Recommended deliverables (brief §20)
 
 | Item | Plan |
 |---|---|
-| CI/CD | GitHub Actions lint → test → integration → build → push → smoke |
+| CI/CD | GitHub Actions lint → test → integration → build (→ GHCR push, smoke test) |
 | Automated tests | pytest (unit + integration vs real simulator), vitest |
-| Experiment tracking | JSON metrics per model version in `models/` (MLflow optional) |
-| Model versioning | `MODEL_VERSION` artifacts; `/model/info` |
-| Decision audit history | `decisions` table + UI page |
-| Deployment versioning | Images tagged by git SHA, `IMAGE_TAG` |
-| Simulation replay | Deterministic benchmark/replay via reset + step |
+| Experiment tracking | Forecast metrics per model version + benchmark results |
+| Model versioning | `models/forecast-<ver>.json`, `MODEL_VERSION`, `/model/info` |
+| Decision audit history | `decisions` table + decision-history tab |
+| Deployment versioning | Images tagged by git SHA (`IMAGE_TAG`) or git tags |
+| Simulation replay | Deterministic benchmark via reset + step |
 | Scenario configuration | `scenarios/*.yaml` + runner |
-| Automated fallback | Heuristic policy on intelligence failure; templates on LLM failure |
-| Rollback | Image tag rollback; model version rollback; LP ↔ heuristic policy switch |
+| Automated fallback | Heuristic on intelligence failure; templates on LLM failure |
+| Rollback | Image/git tag rollback; model version rollback; planner ↔ heuristic switch |
 
 ### 7.3 Evaluation criteria → evidence
 
 | Criterion | Evidence we show |
 |---|---|
-| Product & UX (20) | End-to-end operator workflow in the console; HITL approval; live updates |
-| Intelligence (20) | Forecast error metrics, risk scores, detection alerts, LP with explanations, benchmark table |
-| Architecture (15) | `architecture.md`, clean service boundaries, contract-first API, simulator integration quality |
-| DevOps (15) | One-command deploy, CI/CD pipeline, tests, versioned images, rollback |
-| Resilience (10) | Chaos scenarios with detect → degrade → recover evidence |
-| Observability & Perf (10) | Dashboards, alert rules, health board, load-test report |
-| Demo (10) | §5 script, §1.3 constraint insights explained |
+| Product & UX (20) | Five focused views, end-to-end workflow with batch approval, live updates |
+| Intelligence (20) | Forecast error vs noise floor, risk scores, detectors, explained rolling-horizon plans, benchmark table |
+| Architecture (15) | `architecture.md` + ADRs, clean service boundary, resilient simulator integration |
+| DevOps (15) | One-command deploy, CI with real-simulator integration test, versioned images, rollback |
+| Resilience (10) | Chaos runs + crisis scenarios with detect → degrade → recover evidence |
+| Observability & Perf (10) | Grafana dashboard, alert rules, Health view, load-test report |
+| Demo (10) | §5 script; §1.3 constraint insights explained |
 
 ---
 
@@ -304,19 +312,19 @@ required justification if RL is attempted (RL must beat the heuristic here to be
 
 | Risk | Mitigation |
 |---|---|
-| Simulator semantics differ from our assumptions | Phase 1 spike; preflight + 409 handling; findings doc |
-| Sim speed too fast for human approval | Demo at speed 1–2; Assisted mode auto-approves low-risk; recommendations expire |
-| LLM latency, cost or outage | Async, cached, timeout, templates; never on decision path |
-| Over-engineering (K8s, RL) steals time | MVP line; optional items only after Phase 9 core |
-| Frontend/backend contract drift | OpenAPI-generated TS types; contract changes via PR |
-| Surprise organizer events | Generic event/incident handling driven by `/v1/events` + state diffs, rehearsed drills |
-| Windows/Docker environment differences | Everything runs in containers; pinned versions; CI uses the same compose |
-| Losing history after simulator reset | Run epochs in Postgres; mirror history every tick |
+| Running out of time | Vertical slices (always demoable), hard time boxes, MVP line at hour 18, feature freeze at hour 21 |
+| Simulator semantics differ from our assumptions | I1 spike; preflight + 409 handling; findings doc |
+| Planner bugs (infeasible/odd plans) | Heuristic fallback always available; benchmark catches regressions; unit tests on small cases |
+| Sim speed too fast for human approval | Demo at speed 1–2; batch approval; Assisted mode; plan TTL |
+| LLM latency, cost, outage or no API key | Async, cached, timeout, templates; never on decision path |
+| Surprise organizer events | Generic handling from `/v1/events` + state diffs; drills in I5 |
+| Windows/Docker environment differences | Everything in containers; pinned versions; CI uses the same compose |
+| History lost after simulator reset | Run epochs in Postgres; mirror history every tick |
 
 ---
 
 ## 9. Next steps
 
-1. `/grill-me` on this plan → settle open decisions, update this file and `plan.json` (`decisions_log`).
-2. Phase 0 scaffold + compose + CI.
-3. Phase 1 spike to answer §1.4 before building the optimizer constraints.
+1. Start **I1** at hour 0: scaffold + compose (C/A) while B runs the spike against the simulator.
+2. Decide Q-10 (API key / model) before I4.
+3. Optional: `/grill-me` on this plan if the team wants another pass (PLAN-T7).

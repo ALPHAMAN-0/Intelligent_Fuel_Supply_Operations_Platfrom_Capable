@@ -1,8 +1,10 @@
 # Architecture — Fuel Supply Intelligence & Resilience Platform
 
 > BUP CSE Fest 2026 Hackathon Finals. Source briefs: [`ProblemSet/`](ProblemSet/).
-> Companion docs: [`plan.md`](plan.md) (what we build, in what order) · [`CLAUDE.md`](CLAUDE.md) (working rules).
+> Companion docs: [`plan.md`](plan.md) (what we build, in what order) · [`plan.json`](plan.json) (tracker) ·
+> [`CLAUDE.md`](CLAUDE.md) (working rules).
 > **All data in this system is simulated.** No real fuel infrastructure is accessed or controlled.
+> Scope is sized for a **≤ 24 h build by 2–3 people** — see ADRs in §13 for what was cut and why.
 
 ---
 
@@ -30,6 +32,15 @@ Observe → Detect → Predict → Decide → Simulate → Act → Monitor → R
 | C6 | `demand-history` is capped at 2000 rows per call (12 rows/tick) | We mirror history into our own Postgres every tick |
 | C7 | World is deterministic (same seed + actions + events ⇒ same state) | Enables reproducible tests, replays and policy benchmarks via `/admin/step` |
 
+**What actually makes decisions good in this world** (drives the intelligence design):
+
+- Demand is *structured*: base × region factor × hour-of-day factor × station `demand_multiplier` × per-tick jitter.
+  The multiplier is readable on `/v1/stations`, and crisis events are listed in `/v1/events` (as `SCHEDULED` before
+  they start). Once the structure is modelled, what remains is jitter — the forecast error floor.
+- The hard part is **timing under constraints**: 2–4 tick transit, per-tick depot dispatch caps, station capacity,
+  single-route stations (Tongi, Cox's Bazar), and disruptions announced in advance. That calls for a
+  **rolling-horizon optimizer** whose objective is the judged metric (minimize unmet liters ⇒ maximize `service_level`).
+
 ---
 
 ## 2. System overview
@@ -47,7 +58,8 @@ flowchart LR
     SL["SSE listener<br/>reconnect, watchdog,<br/>poll fallback"]
     SYNC["State sync and ingestion"]
     CACHE[("World-state cache")]
-    ORCH["Decision orchestrator<br/>recommendation lifecycle,<br/>HITL modes"]
+    DET["Detectors<br/>alerts and incidents"]
+    ORCH["Decision orchestrator<br/>plans, HITL modes"]
     HEUR["Heuristic fallback policy"]
     ACT["Actuator<br/>preflight + POST allocations"]
     EXP["Explanation service<br/>Claude API + templates"]
@@ -56,11 +68,10 @@ flowchart LR
   end
 
   subgraph INT["intelligence :8090 (FastAPI)"]
-    FC["Demand forecaster"]
+    FC["Structural demand forecaster"]
     RK["Risk scorer"]
-    DT["Anomaly detector"]
-    OPT["LP optimizer"]
-    WI["What-if projector"]
+    PLN["Rolling-horizon LP planner"]
+    EV["Plan evaluator (what-if)"]
   end
 
   PG[("Postgres :5432")]
@@ -74,11 +85,13 @@ flowchart LR
   SYNC --> SC
   SYNC --> CACHE
   SYNC --> PG
+  CACHE --> DET
   CACHE --> ORCH
   ORCH <--> INT
   ORCH --> HEUR
   ORCH --> ACT --> SC
   ORCH --> EXP --> LLM
+  DET --> PG
   ORCH --> PG
   CACHE --> API
   PG --> API
@@ -96,66 +109,61 @@ Layer mapping (brief deliverable #6: *simulator → data/backend → intelligenc
 |---|---|
 | Simulator | `simulator` container (unmodified) |
 | Data / backend | Sim client, SSE listener, state sync, world-state cache, Postgres |
-| Intelligence | `intelligence` service: forecaster, risk scorer, anomaly detector |
-| Decision | LP optimizer + what-if (intelligence), orchestrator, heuristic fallback, actuator, explanation service |
+| Intelligence | `intelligence` service: forecaster, risk scorer; backend detectors |
+| Decision | Rolling-horizon planner + evaluator (intelligence), orchestrator, heuristic fallback, actuator, explanations |
 | Application | `/api` + React operator console |
-| Monitoring | Prometheus metrics, structured logs, Grafana dashboards + alert rules, `/api/health` board |
+| Monitoring | Prometheus metrics, structured logs, Grafana dashboard + alert rules, `/api/health` board |
 
 ---
 
 ## 3. Services (docker-compose)
 
+`backend` and `intelligence` are **one Python project and one image** (`server/`), started with different commands.
+That keeps one dependency set, one Dockerfile and shared models, while still giving a real process boundary for the
+"ML unavailable → fallback" demonstration.
+
 | Service | Image / build | Port | Health check | Notes |
 |---|---|---|---|---|
 | `simulator` | `asifmahmoud414/bup-fuel-supply-simulator:1.0.0` | 8000 | `GET /v1/health` | Env: `SIMULATION_SPEED`, `TICK_MINUTES`, `SIMULATOR_START_MODE` |
-| `backend` | `./backend` | 8080 | `GET /api/health/live` | Integration, state, orchestration, API, explanations |
-| `intelligence` | `./intelligence` | 8090 | `GET /health` | Stateless per request; loads versioned model artifacts from `./models` volume |
+| `backend` | `./server` → `uvicorn fuelops.backend.main:app` | 8080 | `GET /api/health/live` | Integration, state, detectors, orchestration, API, explanations |
+| `intelligence` | `./server` → `uvicorn fuelops.intelligence.main:app` | 8090 | `GET /health` | Stateless per request; forecast params from `./models` volume |
 | `frontend` | `./frontend` (Vite build → nginx) | 3000 | `GET /` | Talks only to `backend` |
-| `postgres` | `postgres:16-alpine` | 5432 | `pg_isready` | Named volume; Alembic migrations run on backend start |
-| `prometheus` | `prom/prometheus` | 9090 | `/-/healthy` | Scrapes backend + intelligence; loads alert rules from `infra/prometheus/` |
-| `grafana` | `grafana/grafana` | 3001 | `/api/health` | Datasources + dashboards provisioned from `infra/grafana/` |
-| `loki` + `promtail` *(optional)* | grafana images | 3100 | — | Only if time allows; JSON stdout logs are enough otherwise |
+| `postgres` | `postgres:16-alpine` | 5432 | `pg_isready` | Named volume; tables created at backend start (`create_all`, no migrations) |
+| `prometheus` | `prom/prometheus` | 9090 | `/-/healthy` | Scrapes backend + intelligence; alert rules from `infra/prometheus/` |
+| `grafana` | `grafana/grafana` | 3001 | `/api/health` | One provisioned dashboard from `infra/grafana/` |
 | `locust` *(profile `loadtest`)* | `./loadtest` | 8089 | — | Not started by default |
 
-`depends_on: condition: service_healthy` orders startup (postgres → simulator → intelligence → backend → frontend).
-Everything is configured through `.env` (see `.env.example`); no secrets are baked into images.
+`depends_on: condition: service_healthy` orders startup; `restart: unless-stopped` on our services. Everything is
+configured through `.env` (see `.env.example`); no secrets are baked into images.
 
 ---
 
-## 4. Backend (`backend/`)
+## 4. Backend (`server/fuelops/backend/`)
 
-Python 3.11, FastAPI, pydantic v2, httpx (async), SQLAlchemy 2 (async, asyncpg), Alembic, structlog,
-prometheus-client, tenacity, anthropic SDK.
-
-Suggested package layout:
+Python 3.11, FastAPI, pydantic v2, httpx (async), SQLAlchemy 2 (async, asyncpg), structlog, prometheus-client,
+tenacity, anthropic SDK.
 
 ```
-backend/app/
-  main.py                 # app factory, lifespan starts background tasks
-  config.py               # pydantic-settings, all env vars
-  integration/
-    sim_client.py         # typed client for every /v1 endpoint
-    sim_models.py         # pydantic models mirroring the simulator schemas
-    sim_errors.py         # error-envelope parsing + 409 code enum
-    breaker.py            # circuit breaker
-    sse_listener.py       # /v1/stream consumer
-  state/
-    sync.py               # tick-driven resync + demand-history ingestion
-    cache.py              # in-memory world state + freshness flags
-    runs.py               # reset detection, run epochs
-  decision/
-    orchestrator.py       # decision cycle, modes, recommendation lifecycle
-    heuristic.py          # fallback policy (also the baseline)
-    preflight.py          # client-side replica of the simulator's validation order
-    actuator.py           # the only code path that POSTs allocations
-    intelligence_client.py
-  explain/
-    llm.py                # Claude API calls (async, timeout, cache)
-    templates.py          # deterministic fallback explanations
-  api/                    # routers: state, stations, risks, alerts, incidents,
-                          # recommendations, decisions, supply, health, chaos, stream
-  db/                     # models, repositories, alembic/
-  observability/          # metrics registry, logging config, request middleware
+server/
+  pyproject.toml, Dockerfile
+  fuelops/
+    shared/                 # config (pydantic-settings), logging, metrics helpers, domain models
+                            # (WorldState, Forecast, Plan) exchanged between backend and intelligence
+    backend/
+      main.py               # app factory; lifespan starts sync loop, SSE listener, decision loop
+      integration/          # sim_client, sim_models, sim_errors, breaker, sse_listener
+      state/                # sync, cache, runs (reset detection), db (SQLAlchemy models)
+      alerts/               # detectors, incidents
+      decision/             # orchestrator, plans (lifecycle), heuristic, preflight, actuator, intelligence_client
+      explain/              # llm, templates
+      api/                  # routers: state, plans, alerts, supply, health, chaos, stream
+    intelligence/
+      main.py
+      forecast.py           # structural model
+      risk.py
+      planner.py            # rolling-horizon LP (OR-Tools GLOP)
+      evaluate.py           # projection / what-if
+  tests/
 ```
 
 ### 4.1 Sim client (`integration/sim_client.py`)
@@ -163,53 +171,66 @@ backend/app/
 - One `httpx.AsyncClient`, base URL from `SIM_BASE_URL`, connect/read timeouts (default 2 s / 5 s).
 - **Retries** on 503 / timeouts / connection errors: exponential backoff with full jitter (tenacity), max 3 attempts
   for GETs. POST `/v1/allocations` is retried with the **same idempotency key** (safe by contract).
-- **Circuit breaker** per endpoint group (reads, writes): CLOSED → OPEN after N consecutive failures in a window →
-  HALF_OPEN probe after a cooldown. The breaker state is exported as a metric and shown on the health board.
-- **Error envelopes** — parse all three shapes:
+- **Circuit breaker** per endpoint group (reads, writes): CLOSED → OPEN after N consecutive failures → HALF_OPEN probe
+  after a cooldown. State is exported as a metric and shown on the health board.
+- **Error envelopes** — parse all shapes:
   - `{"detail": {"code": "...", "message": "..."}}` — domain errors (404/409)
   - `{"error": {"code": "FAULT_INJECTED", "message": "..."}}` — injected faults (503)
   - `{"detail": [...]}` — FastAPI/pydantic 422
   - `stream_disconnect` 503 uses `{"detail": {"code": "FAULT_INJECTED"}}` (nested under `detail`).
-- **Stale data**: if a GET response carries `X-Simulator-Stale: true`, the resource is stored but marked
-  `stale=true`; the cache freshness flag propagates to the UI banner and blocks automatic actions.
+- **Stale data**: a GET with `X-Simulator-Stale: true` is stored but flagged `stale`; the flag propagates to the UI
+  banner and blocks automatic approval.
 - **Response validation**: every payload is parsed into pydantic models. Invalid payload ⇒ reject, keep last-good
-  state, raise a `SIM_INVALID_RESPONSE` system alert (brief §11: *invalid simulator response → reject input + raise alert*).
-- **Liveness vs usability**: `/v1/health` bypasses faults, so it tells us the simulator process is alive;
-  the breaker state tells us whether `/v1/*` is usable. The health board shows both.
+  state, raise a `SIM_INVALID_RESPONSE` system alert (brief §11).
+- **Liveness vs usability**: `/v1/health` bypasses faults (process alive); the breaker says whether `/v1/*` is usable.
+  The health board shows both.
 
 ### 4.2 SSE listener (`integration/sse_listener.py`)
 
 - Consumes `GET /v1/stream`; ignores comment lines (`: connected`, `: keepalive`).
-- Events handled: `simulation.tick`, `allocation.status_changed`, `inventory.updated`, `simulator.notice`.
-  Payloads are **hints only** — each one schedules a (coalesced) REST resync.
-- **Reconnect** with exponential backoff (cap 10 s). On every (re)connect ⇒ full REST resync (no Last-Event-ID replay).
-- **Watchdog**: if the instance is `RUNNING` and no `simulation.tick` arrives within
-  `max(3 × expected_tick_interval, 20 s)`, assume we were silently dropped (200-event queue overflow) and reconnect.
-  A 15 s silence alone is *not* a disconnect (keepalive interval).
-- **Polling fallback**: while the stream is unavailable (e.g. `stream_disconnect` fault ⇒ 503), poll
-  `GET /v1/instance` every `POLL_INTERVAL_MS` and resync when `tick` advances. Mode is exported as a metric.
-- The consumer never does heavy work inline — it pushes into an internal asyncio queue so it cannot fall behind.
+- Events: `simulation.tick`, `allocation.status_changed`, `inventory.updated`, `simulator.notice` — **hints only**;
+  each schedules a coalesced REST resync.
+- **Reconnect** with exponential backoff (cap 10 s); every (re)connect ⇒ full resync (no replay).
+- **Watchdog**: if RUNNING and no `simulation.tick` within `max(3 × expected_tick_interval, 20 s)`, assume a silent
+  drop (200-event overflow) and reconnect. A 15 s silence alone is normal (keepalive).
+- **Polling fallback**: while the stream is unavailable, poll `GET /v1/instance` every `POLL_INTERVAL_MS` and resync
+  when `tick` advances. The walking skeleton (I1) starts with polling only; SSE is added in I3.
+- The consumer only enqueues; it never does heavy work inline, so it cannot fall behind.
 
 ### 4.3 State sync and ingestion (`state/`)
 
-On each new tick (coalesced; at most one sync in flight):
+On each new tick (coalesced; one sync in flight):
 
 1. `GET /v1/instance`, `/v1/depots`, `/v1/stations`, `/v1/routes`, `/v1/supply-arrivals`, `/v1/events`,
-   `/v1/allocations`, `/v1/metrics` (parallel, each individually fault-tolerant).
-2. `GET /v1/demand-history?limit=N` with `N = min(2000, 12 × ticks_since_last_sync + 24)`; upsert by simulator row id.
-3. Diff against the previous snapshot ⇒ emit domain changes (status transitions, supply delays, quantity changes,
-   new/started/resolved events) to the orchestrator and to the UI stream.
-4. Persist snapshots (inventory, metrics, status changes) to Postgres. If Postgres is down, keep serving from memory
-   and buffer writes in a bounded queue; health shows `database: degraded`.
+   `/v1/allocations`, `/v1/metrics` (parallel, individually fault-tolerant).
+2. `GET /v1/demand-history?limit=N`, `N = min(2000, 12 × ticks_since_last_sync + 24)`; upsert by simulator row id.
+3. Diff against the previous snapshot ⇒ domain changes (status transitions, supply delays/shortfalls, event
+   lifecycle) to the detectors, orchestrator and UI stream.
+4. Persist snapshots (inventory, station `demand_multiplier`, metrics, status changes). If Postgres is down, keep
+   serving from memory and mark `database: degraded` (write-buffer replay is optional).
 
-**Run epochs / reset detection**: `POST /admin/reset` wipes the simulator. We detect it via `simulator.notice`
-("Simulation reset") or `tick` going backwards, then open a new `sim_run` row. All persisted data is keyed by `run_id`,
-and idempotency keys include the run id, so keys never collide across resets.
+**Run epochs / reset detection**: `simulator.notice` ("Simulation reset") or `tick` going backwards opens a new
+`sim_run`; all persisted data and idempotency keys include the `run_id`.
 
-**UI reads never fan out to the simulator.** The API serves the cache/DB, which protects the simulator under load
-and makes dashboard latency predictable (important for load testing).
+**UI reads never fan out to the simulator** — the API serves cache/DB, protecting the simulator and keeping dashboard
+latency predictable under load.
 
-### 4.4 Decision orchestrator (`decision/orchestrator.py`)
+### 4.4 Detectors (`alerts/`)
+
+Detectors live in the backend so alerts keep working when the intelligence service is down.
+
+| Detector | Signal |
+|---|---|
+| Scheduled / active events | New `SCHEDULED` or `ACTIVE` event in `/v1/events` ⇒ pre-emptive alert with affected entities |
+| Network change | Route `DISRUPTED`, station `OUTAGE`, depot `CONSTRAINED`; single-route station at risk ⇒ "no alternative route" |
+| Supply risk | Arrival → `DELAYED`, `planned_tick` moved, or `quantity` below first-seen value |
+| Demand anomaly | Residual vs latest forecast, z-score > 3 for consecutive ticks; ≥ 2 stations in one region ⇒ *emerging regional disruption*; flags spikes the multiplier does not explain |
+| Inventory anomaly | Observed Δinventory ≠ −served + arrivals − dispatches beyond tolerance |
+| Shortage | Time-to-stockout below threshold or P(stockout) above threshold (from risk scores) |
+
+Related alerts are correlated into **incidents** (by entity, region and event id) with a timeline and summary.
+
+### 4.5 Decision orchestrator and plans (`decision/`)
 
 Per-tick data flow, end to end:
 
@@ -230,41 +251,37 @@ sequenceDiagram
   Y->>S: GET demand-history?limit=N
   Y->>DB: upsert observations and snapshots
   Y->>O: state changed at tick t
-  O->>I: POST /forecast, /risk, /detect
-  I-->>O: forecasts, risks, anomalies
-  O->>I: POST /optimize then /simulate
-  I-->>O: plan with risk before and after
-  O->>DB: persist alerts and recommendations
-  O-)X: explain recommendation (async)
-  O-->>U: push alerts and recommendations
-  U->>O: approve (Manual or Assisted mode)
+  O->>I: POST /cycle (forecast, risk, rolling-horizon plan)
+  I-->>O: forecasts, risks, plan with projections before and after
+  O->>DB: persist plan, alerts and risks
+  O-)X: explain plan (async)
+  O-->>U: push plan and alerts
+  U->>O: approve plan or lines (Manual or Assisted)
   O->>S: re-GET depot, station, route and preflight
   O->>S: POST /v1/allocations with idempotency_key
   S-->>L: allocation.status_changed (hint)
   L->>Y: resync allocations
 ```
 
-Decision cycle (triggered after a sync; single-flight; cadence `DECISION_EVERY_N_TICKS`, default 1):
+Decision cycle (after each sync; single-flight; cadence `DECISION_EVERY_N_TICKS`, default 1):
 
 ```
-1. Snapshot state (reject cycle if state is stale or older than 1 tick)
-2. intelligence /forecast   → per (station, fuel) demand forecast + σ
-3. intelligence /risk       → inventory position, time-to-stockout, P(stockout)
-4. intelligence /detect     → anomalies (demand, inventory, supply, network)
-5. Alerts/incidents         → create/update/resolve
-6. intelligence /optimize   → candidate allocation plan (+ binding constraints, alternatives)
-7. intelligence /simulate   → projected risk before → after for the plan
-8. Recommendations          → persist as PROPOSED with rationale, confidence, expiry
-9. Mode gate                → auto-approve or wait for operator
-10. Actuator                → fresh re-GET + preflight → POST /v1/allocations
-11. Explanation (async)     → Claude or template; never blocks steps 1–10
+1. Snapshot state (skip cycle if state is stale or older than 1 tick)
+2. intelligence POST /cycle → forecasts (μ, σ), risks, plan for this tick + projections with/without plan
+3. Persist a PLAN (one per cycle) with its lines, rationale, confidence, expiry
+4. Mode gate → auto-approve or wait for the operator
+5. Actuator → fresh re-GET + preflight → POST /v1/allocations
+6. Explanation (async) → Claude or template; never blocks steps 1–5
 ```
 
-If the intelligence service is unreachable, times out (default 1.5 s), or its breaker is open, steps 2–7 are served by
-the **heuristic fallback** (`decision/heuristic.py`) using an in-process seasonal-naive forecast. Recommendations are
-tagged `policy=heuristic` and the `fuelops_fallback_activations_total` counter increments.
+If intelligence is unreachable, times out (`INTELLIGENCE_TIMEOUT_S`, default 1.5 s) or its breaker is open, the
+backend uses the **heuristic fallback** with an in-process seasonal-naive forecast; plans are tagged
+`policy=heuristic` and `fuelops_fallback_activations_total` increments. `PLANNER_POLICY=heuristic` forces the
+fallback (policy rollback).
 
-### 4.5 Recommendation lifecycle and human-in-the-loop
+**Plans, not a stream of single recommendations.** At simulation speed an operator cannot review one recommendation
+per tick, so each cycle produces one plan (all shipments for this tick). The operator approves the plan or single
+lines; a plan not acted on expires after `PLAN_TTL_TICKS` (default 2) and is superseded by the next cycle.
 
 ```mermaid
 stateDiagram-v2
@@ -273,7 +290,7 @@ stateDiagram-v2
   PROPOSED --> MODIFIED: operator edits quantity or route
   MODIFIED --> APPROVED
   PROPOSED --> REJECTED: operator rejects
-  PROPOSED --> EXPIRED: expiry tick passed or state changed
+  PROPOSED --> EXPIRED: TTL passed or superseded
   APPROVED --> SUBMITTED: preflight ok, POST sent
   APPROVED --> BLOCKED: preflight fails (e.g. route disrupted)
   SUBMITTED --> SIM_REJECTED: 409 from simulator
@@ -285,13 +302,15 @@ stateDiagram-v2
   ARRIVED --> [*]
 ```
 
-**Operating modes** (switchable in the UI, token-protected):
+(States apply per plan line; a plan's state summarises its lines.)
+
+**Operating modes** (UI switch, token-protected):
 
 | Mode | Behaviour |
 |---|---|
-| **Manual** | Every recommendation waits for operator approval |
-| **Assisted** *(default)* | Auto-approve when confidence ≥ `AUTO_APPROVE_MIN_CONFIDENCE`, quantity ≤ `AUTO_APPROVE_MAX_LITERS`, data is fresh and no active incident touches the entity; otherwise require review |
-| **Auto** | Auto-approve everything that passes preflight (used for benchmarks and fast simulation speeds) |
+| **Manual** | Every plan waits for operator approval |
+| **Assisted** *(default)* | Auto-approve lines when confidence ≥ `AUTO_APPROVE_MIN_CONFIDENCE`, quantity ≤ `AUTO_APPROVE_MAX_LITERS`, data is fresh and no open incident touches the entity; everything else waits for review (management by exception) |
+| **Auto** | Auto-approve every line that passes preflight (benchmarks, high simulation speeds) |
 
 This satisfies the guardrail *"preserve human review for consequential simulated decisions"* and brief §11
 *"prediction confidence too low → human review requested"*.
@@ -299,14 +318,12 @@ This satisfies the guardrail *"preserve human review for consequential simulated
 ### 4.6 Actuator, preflight and idempotency (`decision/actuator.py`, `preflight.py`)
 
 - The actuator is the **only** code that calls `POST /v1/allocations` or `/cancel`.
-- Before each POST: re-GET the depot, station and route, then run **preflight** — the simulator's validation order
-  replicated client-side: ids exist → route matches (depot, station) → depot status ∈ {OPEN, CONSTRAINED} → station
-  OPEN → route AVAILABLE → `quantity ≤ max_shipment` → depot inventory ≥ quantity → dispatch capacity this tick →
-  station headroom. Preflight failures never reach the simulator.
-- **Idempotency key** = `fo-{run_id}-{recommendation_id}-{part}` (≤ 150 chars, deterministic, unique per intended
-  shipment). Retries reuse the key. A new decision always gets a new key (cancellation does not free keys).
-- Shipments larger than `max_shipment` are split into `part`s.
-- Responses: `201` and `200` are both treated as success (the guide contradicts itself on idempotent replays).
+- Before each POST: re-GET depot, station and route; run **preflight** in the simulator's validation order: ids exist
+  → route matches (depot, station) → depot status ∈ {OPEN, CONSTRAINED} → station OPEN → route AVAILABLE →
+  `quantity ≤ max_shipment` → depot inventory ≥ quantity → dispatch capacity this tick → station headroom.
+- **Idempotency key** = `fo-{run_id}-{plan_id}-{line}-{part}` (≤ 150 chars, deterministic, unique per intended
+  shipment). Retries reuse the key; a new decision always gets a new key (cancellation does not free keys).
+- Lines larger than `max_shipment` are split into `part`s. `201` and `200` both mean success on replay.
 
 **409 handling map:**
 
@@ -314,9 +331,9 @@ This satisfies the guardrail *"preserve human review for consequential simulated
 |---|---|
 | `IDEMPOTENCY_KEY_MISMATCH` | Bug signal: alert, never retry with the same key |
 | `ROUTE_MISMATCH` / `NOT_FOUND` | Bug or stale topology: resync topology, alert |
-| `DEPOT_CLOSED` | Mark depot unusable, re-optimize from other depot |
-| `STATION_CLOSED` | Drop recommendation; station outage incident |
-| `ROUTE_DISRUPTED` | Re-optimize with the route excluded (cross-region reroute) |
+| `DEPOT_CLOSED` | Mark depot unusable, re-plan |
+| `STATION_CLOSED` | Drop line; station outage incident |
+| `ROUTE_DISRUPTED` | Re-plan with the route excluded (cross-region reroute) |
 | `ROUTE_CAPACITY_EXCEEDED` | Split into parts ≤ `max_shipment` |
 | `INSUFFICIENT_INVENTORY` | Resync depot, reduce quantity or wait for next supply arrival |
 | `DISPATCH_CAPACITY_EXCEEDED` | Defer remainder to next tick |
@@ -325,129 +342,127 @@ This satisfies the guardrail *"preserve human review for consequential simulated
 
 ### 4.7 Explanation service (`explain/`)
 
-- Uses the **Claude API** via the official `anthropic` SDK. Model from `LLM_MODEL` (default `claude-opus-5-5`),
-  key from `ANTHROPIC_API_KEY`. Hard timeout (`LLM_TIMEOUT_S`, default 8 s), cached per recommendation/incident.
-- Uses: (a) human-readable explanation per recommendation, (b) incident summary when an incident opens/changes,
-  (c) on-demand "network briefing" (state summarization), (d) operator investigation Q&A grounded in the current state
-  JSON (not a free chatbot — answers cite entities, numbers and alerts from our state).
-- Prompts receive **only structured facts** we computed (risk numbers, binding constraints, alternatives,
-  confidence). The LLM explains; it never decides or changes numbers.
+- **Claude API** via the `anthropic` SDK; model from `LLM_MODEL` (default `claude-opus-5-5`; a faster model such as
+  `claude-sonnet-5-5` or `claude-haiku-4-5-20251001` is a config change), key from `ANTHROPIC_API_KEY`.
+  Hard timeout (`LLM_TIMEOUT_S`, default 8 s), cached per plan/incident.
+- Uses: (a) plan explanation, (b) incident summary, (c) on-demand network briefing. Operator Q&A is optional.
+- Prompts receive **only structured facts** we computed (risks, binding constraints, alternatives, confidence,
+  projections). The LLM explains; it never decides or changes numbers.
 - **Fallback**: deterministic templates render the same facts when there is no key, on timeout, or on error
-  (`explanation_source = template | llm`, exported as a metric). The decision loop never waits on the LLM.
+  (`explanation_source = template | llm`, exported as a metric).
 
 ---
 
-## 5. Intelligence service (`intelligence/`)
+## 5. Intelligence service (`server/fuelops/intelligence/`)
 
-Python 3.11, FastAPI, pandas/numpy, LightGBM, scikit-learn, OR-Tools (GLOP LP). Stateless per request: the backend
-sends the current state and a recent demand window (last 96 ticks); the service loads a versioned model artifact at
-startup. `GET /model/info` reports the model version, training data range and validation metrics.
+pandas/numpy, OR-Tools (GLOP LP). Stateless per request: the backend sends the world state, scheduled/active events
+and a recent demand window (last 96 ticks); forecast parameters are loaded from a versioned JSON file at startup.
+`GET /model/info` reports model version, fit window and validation metrics.
 
 | Endpoint | Input | Output |
 |---|---|---|
-| `POST /forecast` | recent window, stations (+ `demand_multiplier`), horizon ticks | per (station, fuel, tick): mean, σ |
-| `POST /risk` | state (on-hand, in-transit, capacity), forecasts | inventory position, time-to-stockout (h), P(stockout) per horizon |
-| `POST /detect` | recent window, forecasts, state diff | anomalies with type, severity, evidence |
-| `POST /optimize` | state, forecasts, risks, policy params | allocation plan, objective, binding constraints, alternatives |
-| `POST /simulate` | state, forecasts, plan | projected inventory + risk before → after (what-if) |
+| `POST /cycle` | state, events, recent window, policy params | forecasts, risks, plan for this tick, projections with/without plan, binding constraints, alternatives |
+| `POST /evaluate` | state, events, forecasts, a fixed plan (e.g. operator edit) | projected inventory, unmet liters and risk for that plan (what-if) |
+| `POST /forecast` | recent window, stations, horizon | per (station, fuel, tick): μ, σ (also used by the load test) |
 
-### 5.1 Demand forecasting
+### 5.1 Structural demand forecast
 
-The simulator's demand is structured (spec §8.5–8.6): daily base per (profile, fuel) × region `demand_factor` ×
-hour-of-day factor × station `demand_multiplier` (changed by `demand_spike` events) × noise (8–12%).
+```
+μ[s,f,t] = b[s,f,hour(t)] × m[s](t)          σ[s,f,t] = k[s,f] × μ[s,f,t]
+```
 
-- **Primary model**: seasonal baseline (per station/fuel hour-of-day profile learned from history) × live
-  `demand_multiplier`, plus a LightGBM model on the residual (features: hour, day index, profile, fuel, region,
-  multiplier, lags 1/4/96, rolling means). Output mean + σ from recent residual spread.
-- **Fallback**: seasonal-naive (same hour yesterday × multiplier ratio) — also embedded in the backend heuristic.
-- **Evaluation**: every forecast is stored; when actuals arrive we compute MAE/MAPE per horizon (exported metrics,
-  shown in the UI) — "prediction error" observability.
-- **Training**: `intelligence/train.py` reads mirrored history from Postgres, writes
-  `models/forecast-<version>.pkl` + `models/forecast-<version>.json` (metrics, data range, features) — lightweight
-  experiment tracking and model versioning. `MODEL_VERSION` env selects the artifact (rollback = previous version).
+- `b` — per station, fuel and hour-of-day demand level, learned from mirrored history as the mean of
+  `demand / demand_multiplier` in that hour bucket. It starts from a **spec prior** (profile base / 96 × region
+  factor × hour factor, §8.5–8.6 of the guide) and shifts to the data as observations accumulate. The guide's example
+  row (≈ 95 L at 03:00 for Mirpur diesel) does not match a naive spec calculation (≈ 62 L), so the data wins;
+  the spike (Q-09) confirms the mapping.
+- `m` — current station `demand_multiplier`; scheduled `demand_spike` events are applied inside their window.
+- `k` — relative jitter, estimated from residuals (spec noise 8–12 %). If residuals turn out autocorrelated, add an
+  AR(1) correction; otherwise jitter is the irreducible error floor.
+- Forecasts are stored; MAE/MAPE per horizon are computed when actuals arrive and compared with the noise floor.
+- Parameters are saved as `models/forecast-<version>.json` with metrics — lightweight model versioning and
+  experiment tracking. A LightGBM residual model is an optional comparison only (ADR-008).
 
 ### 5.2 Risk scoring
 
-- **Inventory position** `IP = on_hand + in_transit_to_station` (in-transit from our allocation ledger; the
-  simulator's capacity check ignores in-transit, we must not).
-- **Time-to-stockout**: walk the hourly forecast until cumulative demand exceeds `IP`, including scheduled arrivals.
-- **P(stockout within H)** ≈ `1 − Φ((IP − μ_H) / σ_H)` with μ_H, σ_H the horizon demand mean/σ (Monte Carlo
-  optional). Horizons: next 4 h, 12 h, 24 h.
-- **Confidence** combines recent forecast MAPE for the series, data freshness (stale flag), history length and
-  whether a regime change (active event) is in progress.
+- **Inventory position** = on-hand + in-transit to the station (the simulator's capacity check ignores in-transit;
+  we must not).
+- **Time-to-stockout** from the projected inventory trajectory (forecast demand, scheduled supply and in-transit
+  arrivals).
+- **P(stockout within H)** ≈ `1 − Φ((IP_H − μ_H) / σ_H)` for H = 4 h, 12 h, 24 h, with cumulative μ and σ.
+- **Supply ETA**: expected arrival tick per supply arrival (planned tick, `DELAYED` status, anticipated
+  `shipment_delay` events) and per shipment (created + 1 + transit).
+- **Confidence** combines recent forecast error for the series, data freshness, history length and whether an event
+  is changing the regime.
 
-### 5.3 Detection
+### 5.3 Rolling-horizon LP planner (`planner.py`)
 
-| Detector | Signal |
-|---|---|
-| Demand anomaly | Residual z-score > 3 or CUSUM breach, per series; ≥ 2 stations in one region ⇒ *emerging regional disruption* |
-| Inventory anomaly | Observed Δinventory ≠ expected (−served + arrivals) beyond tolerance |
-| Supply risk | Arrival status → `DELAYED`, `planned_tick` moved, or `quantity` below first-seen value (shortfall) |
-| Network change | Route `DISRUPTED`, station `OUTAGE`, depot `CONSTRAINED` transitions |
-| Pre-emptive | Events visible as `SCHEDULED` in `/v1/events` ⇒ pre-position stock before `start_tick` |
-| Bottleneck | Dispatch capacity utilisation > 90 % for consecutive ticks; single-route stations at risk |
+Plan `H = PLAN_HORIZON_TICKS` ticks ahead (default 24 = 6 h), execute only the shipments for the current tick, and
+re-plan every tick (model-predictive control). Shipment lag `ℓ_r = 1 + transit_ticks_r` (created at t, departs t+1,
+arrives t+1+transit — confirmed by Q-03).
 
-### 5.4 Allocation optimizer (LP)
-
-Decision variables `q[r,f] ≥ 0` (liters on available route `r`, fuel `f`, this cycle); shortfall slack `u[s,f] ≥ 0`.
+Variables (t = 0..H−1): shipments `x[r,f,t] ≥ 0`, station inventory `I[s,f,t]`, unmet demand `u[s,f,t] ≥ 0`, depot
+inventory `J[d,f,t]`, terminal shortfall `v[s,f] ≥ 0`.
 
 ```
-minimize    Σ_s,f  w[s,f] · u[s,f]  +  Σ_r,f  c[r] · q[r,f]  +  Σ_d,f  ρ · below_reserve[d,f]
+minimize   Σ_t Σ_s,f (1 + ρ[s,f])·u[s,f,t]  +  Σ_t Σ_r,f c[r]·x[r,f,t]  +  β·Σ_s,f v[s,f]
 
-subject to  u[s,f] ≥ T[s,f] − IP[s,f] − Σ_{r→s} q[r,f]                      (target coverage)
-            Σ_{r→s} q[r,f] ≤ cap[s,f] − IP[s,f]                            (station headroom incl. in-transit)
-            Σ_{r from d} q[r,f] ≤ inv[d,f]                                  (depot inventory, hard)
-            Σ_{r from d} q[r,f] ≤ inv[d,f] − reserve[d,f] + below_reserve[d,f]
-                                                                            (soft reserve, net of upcoming supply)
-            Σ_{r from d, f} q[r,f] ≤ dispatch_cap[d] − dispatched_this_tick[d]
-            q[r,f] ≤ k · max_shipment[r]                                    (split into ≤ k parts)
-            q[r,·] = 0 if route DISRUPTED, station not OPEN, or depot closed
+subject to I[s,f,t] = I[s,f,t−1] + A[s,f,t] + Σ_{r→s} x[r,f,t−ℓ_r] − D̂[s,f,t] + u[s,f,t]   (station balance)
+           0 ≤ I[s,f,t] ≤ cap[s,f]          0 ≤ u[s,f,t] ≤ D̂[s,f,t]
+           I[s,f,t−1] + Σ_{r→s} x[r,f,t] ≤ cap[s,f]                                  (simulator's creation-time check)
+           J[d,f,t] = J[d,f,t−1] + S[d,f,t] − Σ_{r from d} x[r,f,t] ,   J[d,f,t] ≥ 0     (depot balance)
+           Σ_{r from d, f} x[r,f,t] ≤ dispatch_cap[d] − committed[d,t]                   (dispatch cap)
+           x[r,f,t] ≤ k_max · max_shipment[r]                                             (split into parts)
+           x[r,·,t] = 0 when route r is DISRUPTED at t, its station is not OPEN, or its depot is closed
+           v[s,f] ≥ SS[s,f] − I[s,f,H−1]                                                  (terminal safety stock)
 ```
 
-- `T[s,f]` (order-up-to target) = forecast demand over `transit_ticks + cover_window` + `z·σ` safety stock, capped
-  at capacity.
-- `w[s,f]` = urgency weight from P(stockout) and time-to-stockout (fair rationing when supply is scarce).
-- `c[r]` ∝ `transit_ticks` (+ cross-region penalty) so direct 2-tick routes are preferred; cross-region 4-tick
-  routes (`gazipur→karnaphuli`, `patiya→mirpur`) are used when needed for reroutes.
-- Post-processing: round to 100 L, drop parts < `MIN_SHIPMENT_L`, split by `max_shipment`.
-- The solver returns **binding constraints** and **alternatives** (e.g. the next-best route, or "wait for supply at
-  tick N") — these feed the recommendation card and the explanation.
+- `D̂ = μ + z·σ` (`PLAN_SAFETY_Z`, default 1) — plans against an upper demand quantile to absorb jitter.
+- `A` = arrivals of shipments already in transit; `S` = scheduled supply arrivals (with anticipated delays/shortfalls).
+- **Scheduled events are applied to the parameters inside their windows**: demand spikes raise `D̂`, route
+  disruptions zero the route, outages close the station, supply delays shift `S`. This is what lets the planner
+  pre-position stock at single-route stations *before* a disruption starts.
+- Objective weight 1 on unmet liters aligns the plan with the judged `service_level`; `c[r]` (∝ transit ticks,
+  cross-region penalty) is small and only breaks ties; `ρ` are optional priority weights (default 0).
+- Size ≈ 1,100 variables at H = 24; GLOP solves in milliseconds.
+- **Outputs**: shipments for t = 0 (rounded to 100 L, parts < `MIN_SHIPMENT_L` dropped, split by `max_shipment`),
+  full projected trajectories, **binding constraints** (e.g. "Gazipur dispatch cap binding at t=0,1"), unavoidable
+  shortfall (rationing), and **alternatives** (re-solve with the chosen route excluded, or "wait until supply at
+  tick N").
+
+### 5.4 Plan evaluator (what-if)
+
+The same projection model with `x` fixed: *no action*, *the proposed plan*, or *an operator-edited plan*. It returns
+projected unmet liters, stockout ticks and P(stockout) — the "risk before → after" on every plan
+(e.g. *"Mirpur petrol stockout risk 72 % → 19 %"*).
 
 ### 5.5 Heuristic fallback (also the baseline)
 
-Greedy order-up-to: rank (station, fuel) by time-to-stockout; for each, pick the shortest AVAILABLE route from a depot
-with stock and dispatch headroom; ship `min(T − IP, headroom, max_shipment, depot stock − reserve)`. Deterministic,
-dependency-free, runs in the backend process.
+Greedy order-up-to, in the backend process: rank (station, fuel) by time-to-stockout; for each, pick the shortest
+AVAILABLE route from a depot with stock and dispatch headroom; ship
+`min(target − IP, headroom, max_shipment, depot stock − reserve)`. Deterministic and dependency-free.
 
-### 5.6 What-if projector
-
-Rolls the state forward tick by tick with forecast demand, scheduled supply arrivals and plan arrivals
-(`departure = next tick`, `arrival = departure + transit_ticks`), producing projected inventory curves and
-P(stockout) before vs. after (e.g. *"Stockout risk 72 % → 19 %"*). Also powers operator-edited plans ("modify" in UI).
-
-*(Optional stretch: an RL policy trained offline against the deterministic simulator using `/admin/reset` + `/admin/step`,
-benchmarked against the heuristic and LP — see `plan.md` §Benchmark.)*
+*(Optional, only if time remains: an RL policy trained offline via `/admin/reset` + `/admin/step`, compared with the
+heuristic and the planner in the benchmark.)*
 
 ---
 
 ## 6. Data model (Postgres)
 
+Tables are created at startup from SQLAlchemy models (no migration tool — ADR-009).
+
 | Table | Purpose |
 |---|---|
 | `sim_runs` | One row per simulator run epoch (seed, scenario, started/reset times) |
 | `demand_observations` | Mirror of `/v1/demand-history` (unique on run + simulator row id) |
-| `inventory_snapshots` | Per tick, per entity/fuel inventory + capacity |
-| `status_changes` | Route/station/depot/supply status transitions |
+| `snapshots` | Per tick, per entity/fuel inventory, capacity, station `demand_multiplier`, statuses |
 | `sim_metrics` | Per-tick copy of `/v1/metrics` (service level timeline) |
-| `forecasts` | Forecast mean/σ per target tick + model version; error filled when actual arrives |
-| `alerts` | Shortage, anomaly, supply, network and system alerts (severity, status, ack) |
-| `incidents` | Correlated alerts/events with timeline, LLM/template summary |
-| `recommendations` | Plan lines with rationale JSON, risk before/after, confidence, policy, status, expiry |
+| `forecasts` | μ/σ per target tick + model version; error filled when the actual arrives |
+| `alerts`, `incidents` | Detector output, correlation, summaries |
+| `plans`, `plan_lines` | Per-cycle plans with rationale JSON, projections, confidence, policy, status, expiry |
 | `decisions` | Audit trail: who/what approved/rejected/modified, when (wall + tick), reason |
 | `allocations` | Our ledger joined to simulator allocations (idempotency key, status, failure reason) |
 | `app_audit_log` | Operator actions (mode changes, chaos injections, cancellations) |
-
-Migrations with Alembic; repositories isolate SQL from domain logic.
 
 ---
 
@@ -457,43 +472,39 @@ Migrations with Alembic; repositories isolate SQL from domain logic.
 |---|---|
 | `GET /api/health`, `/api/health/live` | Component board (backend, DB, simulator liveness, simulator API breaker, SSE mode, intelligence, decision engine, LLM, p95 latency, error rate) / liveness |
 | `GET /api/state` | Current world snapshot + freshness flags (stale, degraded, sse_mode) |
-| `GET /api/stations/{id}`, `/api/depots/{id}` | Detail incl. forecast, risk, recent history |
+| `GET /api/stations/{id}` | Detail incl. forecast band, projected inventory, risk |
 | `GET /api/risks` | Ranked (station, fuel) risk table |
-| `GET /api/alerts`, `POST /api/alerts/{id}/ack` | Alert feed |
-| `GET /api/incidents`, `GET /api/incidents/{id}` | Incidents with summary and timeline |
-| `GET /api/recommendations`, `POST /api/recommendations/compute` | List / trigger a decision cycle |
-| `POST /api/recommendations/{id}/approve \| reject \| modify \| simulate` | HITL actions + what-if |
-| `POST /api/allocations/{id}/cancel` | Cancel a PENDING allocation |
+| `GET /api/alerts`, `POST /api/alerts/{id}/ack`, `GET /api/incidents[/{id}]` | Alerts and incidents |
+| `GET /api/plans`, `GET /api/plans/{id}` | Current and past plans with lines, rationale, projections |
+| `POST /api/plans/{id}/approve \| reject`, `POST /api/plans/{id}/lines/{n}/approve \| reject \| modify` | HITL actions |
+| `POST /api/plans/{id}/evaluate` | What-if for an edited plan |
 | `GET /api/decisions` | Decision history (audit) |
-| `GET /api/supply`, `GET /api/allocations` | Incoming supply, shipment ledger |
+| `GET /api/supply`, `GET /api/allocations`, `POST /api/allocations/{id}/cancel` | Supply schedule, shipment ledger, cancel PENDING |
 | `GET/PUT /api/settings/mode` | Manual / Assisted / Auto |
-| `POST /api/briefing`, `POST /api/ask` | LLM network briefing / grounded investigation Q&A |
-| `GET /api/stream` | SSE to the UI (state changed, alerts, recommendations, health) |
+| `POST /api/briefing` | LLM network briefing |
+| `GET /api/stream` | SSE to the UI (state changed, alerts, plans, health) |
 | `POST /api/chaos/{events,faults,faults/clear,run,pause,step,reset}` | Token-gated proxy to `/admin/*` for demos |
 | `GET /metrics` | Prometheus |
 
-Mutating endpoints require `Authorization: Bearer <OPERATOR_TOKEN>`. The OpenAPI schema is the contract; the frontend
-generates TypeScript types from it (`openapi-typescript`).
+Mutating endpoints require `Authorization: Bearer <OPERATOR_TOKEN>`.
 
 ---
 
 ## 8. Frontend (`frontend/`)
 
-React 18 + Vite + TypeScript (strict), TanStack Query (REST cache), EventSource for `/api/stream` (invalidates
-queries), React Router, Tailwind + shadcn/ui, Recharts. Pages:
+React + Vite + TypeScript (strict), TanStack Query, EventSource on `/api/stream`, Tailwind, Recharts.
+Five views (quality over quantity):
 
-1. **Network overview** — schematic of 2 depots → 6 routes → 4 stations, colored by status; per-fuel inventory gauges;
-   service level; active incidents; `SIMULATED DATA` badge; stale/degraded banners.
-2. **Station / depot detail** — inventory vs capacity, forecast with uncertainty band vs actuals, time-to-stockout,
-   P(stockout), incoming shipments and supply.
-3. **Alerts & incidents** — feed with severity, evidence and LLM/template summary.
-4. **Recommendations** — inspector card (why at risk, signals, binding constraints, expected impact before → after,
-   confidence, alternatives, explanation) with Approve / Modify (what-if) / Reject; mode switch.
-5. **Supply & shipments** — supply-arrival schedule (delays highlighted), allocation ledger, cancel PENDING.
-6. **Decision history** — audit trail with filters.
-7. **System health** — component board, breaker states, SSE mode, p95 / error rate, fallback activations, links to
-   Grafana.
-8. **Chaos panel** — inject crisis events / faults, run / pause / step / reset (demo + self-test).
+1. **Overview** — schematic of 2 depots → 6 routes → 4 stations colored by status; per-fuel inventory gauges;
+   regional demand; service level; incoming-supply strip; open incidents; `SIMULATED DATA` badge;
+   stale / degraded / fallback banners. Clicking a station opens a drawer: forecast band vs actuals, projected
+   inventory with and without the plan, time-to-stockout, P(stockout).
+2. **Plans** — current plan: per line why at risk, signals, binding constraints, impact before → after, confidence,
+   alternatives, explanation; approve / modify (what-if) / reject; mode switch; decision-history tab.
+3. **Alerts & incidents** — feed with severity, evidence, timeline and summary.
+4. **Supply & shipments** — supply-arrival schedule (delays highlighted), allocation ledger, cancel PENDING.
+5. **Health** — component board, breaker states, SSE mode, p95 / error rate, fallback activations, Grafana link;
+   **chaos drawer** (token-gated) to inject events/faults and run / pause / step / reset.
 
 ---
 
@@ -501,21 +512,18 @@ queries), React Router, Tailwind + shadcn/ui, Recharts. Pages:
 
 | Failure | Detection | Response | Recovery |
 |---|---|---|---|
-| Intelligence service down / slow | Timeout, breaker OPEN, health probe | Heuristic fallback policy; recs tagged `heuristic` | Breaker HALF_OPEN probe → CLOSED; resume LP |
-| Simulator `unavailable` / `error_rate` (503) | Error envelope, breaker | Retry w/ backoff + jitter; serve cached state flagged `degraded`; pause auto-actions | Breaker closes; full resync |
+| Intelligence service down / slow | Timeout, breaker OPEN | Heuristic fallback; plans tagged `heuristic` | Breaker HALF_OPEN probe → CLOSED; planner resumes |
+| Simulator `unavailable` / `error_rate` (503) | Error envelope, breaker | Retry w/ backoff + jitter; cached state flagged `degraded`; auto-approval paused | Breaker closes; full resync |
 | Simulator `latency` | Client timeouts, latency histogram | Timeouts + retries; skip decision cycle if state too old | Automatic |
-| `stale_data` | `X-Simulator-Stale` header | Banner; block auto-approval; recs require review | Header disappears ⇒ resync |
+| `stale_data` | `X-Simulator-Stale` header | Banner; auto-approval blocked; plans need review | Header gone ⇒ resync |
 | `stream_disconnect` / silent drop | 503 on connect / watchdog | Poll `/v1/instance`; reconnect loop | Stream back ⇒ full resync |
 | Invalid simulator response | pydantic validation failure | Reject payload, keep last-good state, system alert | Next valid response |
-| Low prediction confidence | Confidence < threshold | Human review required (even in Assisted mode) | — |
+| Low prediction confidence | Confidence < threshold | Human review required, even in Assisted mode | — |
 | Allocation rejected (409) | Error code | Code-specific reaction (§4.6) | — |
-| Postgres down | Health check / write errors | In-memory state continues; bounded write buffer; DB `degraded` | Flush buffer |
+| Postgres down | Health check / write errors | In-memory state continues; DB shown `degraded` | Writes resume |
 | LLM down / no key | Timeout / error | Template explanations | Automatic |
-| Backend crash | Container health check | `restart: unless-stopped`; state rebuilt from REST + DB on start | Automatic |
-| Simulator reset | `simulator.notice` / tick regression | New run epoch; clear caches | Automatic |
-
-Techniques used: timeouts, retries with jitter, circuit breakers, idempotent writes, cached last-good state,
-graceful degradation, fallback policy, health checks, restart policies, and image-tag rollback.
+| Backend crash | Container health check | `restart: unless-stopped`; state rebuilt from REST + DB | Automatic |
+| Simulator reset | `simulator.notice` / tick regression | New run epoch; caches cleared | Automatic |
 
 ---
 
@@ -525,42 +533,40 @@ graceful degradation, fallback policy, health checks, restart policies, and imag
 
 | Layer | Metrics |
 |---|---|
-| Application | `http_requests_total{route,method,status}`, `http_request_duration_seconds` (histogram → p50/p95/p99), availability |
-| Simulator integration | `sim_requests_total{endpoint,outcome}`, `sim_request_duration_seconds`, `sim_breaker_state`, `sim_stale`, `sse_connected`, `sse_mode{stream,polling}`, `sse_reconnects_total`, `tick_lag` (sim tick − processed tick) |
-| Intelligence | `forecast_mae`, `forecast_mape{horizon}`, `recommendation_confidence`, `shortage_alerts_total`, `decision_cycles_total`, `decision_cycle_duration_seconds`, `fallback_activations_total`, `llm_requests_total{outcome}`, `llm_latency_seconds` |
-| Business | `service_level`, `unmet_demand_liters`, `allocation_failures`, `stations_at_risk`, `recommendations_total{status}` |
-| System | Container CPU/memory via cAdvisor (optional) or Docker stats in the load-test report |
+| Application | `http_requests_total{route,method,status}`, `http_request_duration_seconds` (p50/p95/p99), availability |
+| Simulator integration | `sim_requests_total{endpoint,outcome}`, `sim_request_duration_seconds`, `sim_breaker_state`, `sim_stale`, `sse_connected`, `sse_mode{stream,polling}`, `sse_reconnects_total`, `tick_lag` |
+| Intelligence | `forecast_mae`, `forecast_mape{horizon}`, `plan_confidence`, `shortage_alerts_total`, `decision_cycles_total`, `decision_cycle_duration_seconds`, `planner_solve_seconds`, `fallback_activations_total`, `llm_requests_total{outcome}`, `llm_latency_seconds` |
+| Business | `service_level`, `unmet_demand_liters`, `allocation_failures`, `stations_at_risk`, `plan_lines_total{status}` |
+| System | Container CPU/memory captured with `docker stats` during load tests (cAdvisor optional) |
 
-**Logs**: structlog JSON to stdout with `run_id`, `tick`, `request_id`, `recommendation_id`. Key events:
-`decision.proposed/approved/submitted/rejected`, `integration.failure`, `breaker.state_changed`, `fallback.activated`,
-`incident.opened/resolved`, `recovery.completed`.
+**Logs**: structlog JSON to stdout with `run_id`, `tick`, `request_id`, `plan_id`. Key events:
+`decision.proposed/approved/submitted/rejected`, `integration.failure`, `breaker.state_changed`,
+`fallback.activated`, `incident.opened/resolved`, `recovery.completed`.
 
-**Dashboards** (provisioned JSON in `infra/grafana/`): *Operations* (service level, unmet demand, stations at risk,
-alerts), *Platform* (latency, error rate, breaker/SSE state, tick lag), *Intelligence* (forecast error, confidence,
-fallback activations, LLM health).
+**Dashboard**: one provisioned Grafana dashboard with three rows — *Operations* (service level, unmet demand,
+stations at risk, alerts), *Platform* (latency, error rate, breaker/SSE state, tick lag), *Intelligence* (forecast
+error vs noise floor, confidence, fallback activations, LLM health).
 
-**Alert rules** (`infra/prometheus/alerts.yml`): `SimulatorApiDegraded`, `SseDisconnected`, `IntelligenceDown`,
-`FallbackActive`, `HighApiErrorRate`, `HighP95Latency`, `ServiceLevelDrop`, `StockoutRiskHigh`, `TickLagHigh`.
-Firing alerts are also surfaced on the UI health page.
+**Alert rules** (`infra/prometheus/alerts.yml`): `SimulatorApiDegraded`, `IntelligenceDown`, `SseDisconnected`,
+`HighP95Latency`, `ServiceLevelDrop`. Firing alerts also show on the UI Health view.
 
 ---
 
 ## 11. Deployment and CI/CD
 
 - **Run**: `cp .env.example .env && docker compose up -d` → UI http://localhost:3000, API :8080/docs,
-  Grafana :3001, simulator dashboard :8000/admin.
+  Grafana :3001, simulator console :8000/admin.
 - **Pipeline** (GitHub Actions, `.github/workflows/ci.yml`):
 
 ```
 lint (ruff, eslint, tsc) → unit tests (pytest, vitest) → integration tests
-(simulator image as a service container: pause → reset → allocate → step N → assert)
-→ build images → push to GHCR (:sha, :latest on main) → compose smoke test (health checks) → publish report
+(simulator image as a service container: pause → reset → allocate → step N → assert) → docker build
+→ [should] push to GHCR (:sha, :latest on main) → [should] compose smoke test (health checks)
 ```
 
-- **Versioning & rollback**: images tagged with the git SHA; `IMAGE_TAG` in `.env` selects the version,
-  `docker compose up -d` rolls forward/back. Model artifacts are versioned by `MODEL_VERSION`; decision policy can be
-  switched LP ↔ heuristic at runtime (policy rollback).
-- **Optional**: Kubernetes manifests / Helm chart (`infra/k8s/`) only if time allows and it adds demo value.
+- **Versioning & rollback**: images tagged with the git SHA (`IMAGE_TAG`) when pushed to GHCR, otherwise git tags +
+  `docker compose build`; forecast params versioned by `MODEL_VERSION`; decision policy switchable planner ↔
+  heuristic at runtime (`PLANNER_POLICY`, UI toggle).
 
 ---
 
@@ -571,7 +577,7 @@ lint (ruff, eslint, tsc) → unit tests (pytest, vitest) → integration tests
 - Mutating operator actions and the chaos proxy require `OPERATOR_TOKEN`; chaos proxy can be disabled
   (`CHAOS_ENABLED=false`).
 - CORS restricted to the frontend origin. LLM prompts contain only simulated operational data.
-- UI and API responses clearly label data as simulated.
+- UI and API clearly label data as simulated.
 
 ---
 
@@ -579,10 +585,13 @@ lint (ruff, eslint, tsc) → unit tests (pytest, vitest) → integration tests
 
 | ADR | Decision | Why |
 |---|---|---|
-| 001 | Python/FastAPI backend + React/Vite/TS frontend | Python fits ML/optimization and matches the simulator's ecosystem; React gives a real-time operator console |
-| 002 | Separate `intelligence` service | Clear failure boundary → demonstrable "ML unavailable → fallback" behaviour; independent model versioning |
-| 003 | LP optimizer + greedy heuristic fallback | LP is explainable (binding constraints) and fast (< 50 ms); heuristic guarantees decisions when ML is down and doubles as benchmark baseline |
-| 004 | Postgres (no TSDB) | Data volume is small (12 rows/tick); one familiar store for history, audit and recommendations |
-| 005 | Claude API for explanations with template fallback | Adds human-readable reasoning and incident summaries without putting an LLM on the critical decision path |
-| 006 | Serve UI from cache, never proxy reads to simulator | Predictable latency under load, protects simulator, works in degraded mode |
-| 007 | Deterministic idempotency keys `fo-{run}-{rec}-{part}` | Safe retries, no collisions across resets or regenerated recommendations |
+| 001 | Python/FastAPI + React/Vite/TS | Python fits optimization/ML and the simulator's ecosystem; React gives a real-time operator console |
+| 002 | Separate `intelligence` process | Real failure boundary ⇒ demonstrable "ML unavailable → fallback"; independent model versioning |
+| 003 | **Rolling-horizon LP planner** + greedy heuristic fallback | Handles transit lags, per-tick dispatch caps and scheduled disruptions; objective = judged service level; explainable via binding constraints; what-if reuses the same model. Heuristic guarantees decisions when ML is down and is the benchmark baseline |
+| 004 | Postgres (no TSDB) | Small volume (12 rows/tick); one store for history, audit and plans; can be stopped to demo degradation |
+| 005 | Claude API for explanations with template fallback | Human-readable reasoning without putting an LLM on the decision path |
+| 006 | Serve UI from cache, never proxy reads to the simulator | Predictable latency under load, protects simulator, works in degraded mode |
+| 007 | Deterministic idempotency keys `fo-{run}-{plan}-{line}-{part}` | Safe retries, no collisions across resets or regenerated plans |
+| 008 | **Structural forecast, not LightGBM** | Demand structure is known and the multiplier/events are observable; the remainder is seeded jitter, so a learned structural model reaches the noise floor. LightGBM stays an optional comparison |
+| 009 | **One Python project/image for backend + intelligence; `create_all` instead of migrations; detectors in backend** | ≤ 24 h build with 2–3 people: one dependency set and Dockerfile, shared models; alerts keep working when intelligence is down |
+| 010 | Plans per cycle with batch approval | Operators cannot review one recommendation per tick at simulation speed; Assisted mode = management by exception |
