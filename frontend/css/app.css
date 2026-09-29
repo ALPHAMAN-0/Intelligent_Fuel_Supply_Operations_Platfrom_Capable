@@ -364,7 +364,7 @@ svg.network, svg.chart { display: block; width: 100%; height: auto; overflow: vi
   text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
 }
 .plan > .actions + .table, .plan > div + .table { margin-top: var(--space-2); }
-.plans .grid-2 > .card { max-height: 520px; overflow-y: auto; }
+.plans .grid-2 > .card, .supply > .card { max-height: 520px; overflow-y: auto; }
 .plans .grid-2 > .card .table th { z-index: 1; }
 
 .line-detail { display: grid; gap: var(--space-3); }

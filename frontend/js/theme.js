@@ -37,12 +37,15 @@ export function toggleTheme(options = {}) {
   return next;
 }
 
-export function applyStoredTheme({ storage = localStore() } = {}) {
-  let stored = null;
+function storedTheme(storage) {
   try {
-    stored = storage?.getItem(THEME_KEY) ?? null;
+    return storage?.getItem(THEME_KEY) ?? null;
   } catch {
-    stored = null;
+    return null;
   }
+}
+
+export function applyStoredTheme({ storage = localStore() } = {}) {
+  const stored = storedTheme(storage);
   if (THEMES.has(stored)) document.documentElement.dataset.theme = stored;
 }

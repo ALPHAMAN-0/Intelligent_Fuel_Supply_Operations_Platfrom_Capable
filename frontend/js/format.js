@@ -26,8 +26,11 @@ export function shortId(id) {
   return String(id ?? '').replace(/^(station|depot|route|region)-/, '');
 }
 
+const ACRONYMS = new Set(['api', 'llm', 'sse', 'id', 'lp', 'sla']);
+
 export function titleCase(text) {
-  return String(text ?? '').replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return String(text ?? '').replace(/[_-]+/g, ' ')
+    .replace(/\b\w+/g, (w) => (ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)));
 }
 
 /** Risk tone from a P(stockout within 4 h) and hours-to-stockout. */

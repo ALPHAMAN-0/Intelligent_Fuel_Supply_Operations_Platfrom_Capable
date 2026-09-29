@@ -34,6 +34,13 @@ describe('number formatting', () => {
     expect(shortId(undefined)).toBe('');
     expect(titleCase('demand_anomaly')).toBe('Demand Anomaly');
   });
+
+  it('keeps acronyms upper-case in generated labels', () => {
+    expect(titleCase('simulator_api')).toBe('Simulator API');
+    expect(titleCase('llm')).toBe('LLM');
+    expect(titleCase('event_stream')).toBe('Event Stream');
+    expect(titleCase('sse_listener')).toBe('SSE Listener');
+  });
 });
 
 describe('tones', () => {
