@@ -1,0 +1,32 @@
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Node / frontend
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Logs & OS / editor noise
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local Claude Code settings (keep shared skills committed)
+.claude/settings.local.json
