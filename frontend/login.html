@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>FuelOps · Operator sign-in</title>
+  <link rel="stylesheet" href="css/login.css">
+  <script type="module" src="js/login-page.js"></script>
+</head>
+<body>
+  <main class="login">
+    <p class="badge" aria-label="All data shown is simulated">SIMULATED DATA</p>
+    <h1>FuelOps operator sign-in</h1>
+    <p class="lede">
+      Paste the operator token to approve, reject or modify plans and use the chaos drawer.
+      Viewing the console does not need a token.
+    </p>
+
+    <!-- The script handles submission. method="post" only ensures that, if scripts fail, the token is never put in a
+         URL (the static server answers 405). -->
+    <form id="login-form" method="post" novalidate>
+      <label for="token">Operator token</label>
+      <input id="token" name="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"
+             required aria-describedby="token-hint login-status">
+      <p id="token-hint" class="hint">Set by <code>OPERATOR_TOKEN</code> on the backend. Kept only for this browser tab.</p>
+      <button id="sign-in" type="submit">Sign in</button>
+      <p id="login-status" class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <noscript><p class="status">Sign-in needs JavaScript.</p></noscript>
+  </main>
+</body>
+</html>
