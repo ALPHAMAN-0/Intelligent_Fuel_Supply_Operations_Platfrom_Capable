@@ -194,7 +194,6 @@ body {
     linear-gradient(var(--bg-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
   background-size: 32px 32px;
-  background-attachment: fixed;
   color: var(--text);
   font: 400 var(--text-md) / 1.5 var(--font-ui);
   font-feature-settings: "ss01", "cv11";

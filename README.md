@@ -54,6 +54,12 @@ The console is readable without signing in. Approving, rejecting or modifying pl
 network briefing and the chaos drawer need the operator token. Without `OPERATOR_TOKEN` those actions return 503
 (disabled, never open).
 
+**Hosted on Render.** [`render.yaml`](render.yaml) is a Blueprint for the simulator, intelligence and backend
+services (Render dashboard → New → Blueprint → this repo). After that, every push to `main` that touches `server/` or
+`frontend/` redeploys automatically. Render keeps the previous deploy live if the new one fails its health check.
+Sign in at `https://<backend>.onrender.com/login.html` with the generated `OPERATOR_TOKEN` (backend → Environment).
+The free-plan caveats (sleep, shared hours, no disk) are listed at the top of the file.
+
 ---
 
 ## 2. The operating loop

@@ -1,0 +1,89 @@
+# Render Blueprint: the same three services as docker-compose.yml (simulated data only).
+# One-time setup: Render dashboard -> New -> Blueprint -> pick this repo. After that every push to main redeploys
+# backend + intelligence when files under their build filter change (docs-only pushes don't restart anything).
+#
+#   fuelops-simulator     organizer's published image, unmodified (CLAUDE.md hard rule 1)
+#   fuelops-intelligence  forecaster + LP planner (optional: backend falls back to the heuristic without it)
+#   fuelops-backend       operator API + static operator console + decision loop  -> open /login.html
+#
+# Free-plan caveats:
+# - Free services can't RECEIVE private-network traffic, so the backend reaches the others by public URL. Render
+#   names the URL after the service; if a name was taken it adds a suffix. Check the URLs on the dashboard after the
+#   first deploy and, if they differ, fix SIM_BASE_URL / INTELLIGENCE_URL below and push.
+# - Free services sleep after 15 min without inbound requests, and the workspace gets 750 free hours/month shared
+#   by all services (three always-on services need ~2,200). Use plan: starter for judging days.
+# - No persistent disk on free: the SQLite store is wiped on every deploy, restart or sleep.
+# - The simulator's /admin is reachable by anyone who knows its URL. To hide it, make it `type: pserv` on a paid
+#   plan and point SIM_BASE_URL at http://fuelops-simulator:8000 (free services can send private traffic).
+#
+# Rollback: Render dashboard -> service -> Events -> pick an earlier deploy -> Rollback.
+
+services:
+  - type: web
+    name: fuelops-simulator
+    runtime: image
+    image:
+      url: docker.io/asifmahmoud414/bup-fuel-supply-simulator:1.0.0
+    plan: free
+    region: singapore
+    healthCheckPath: /v1/health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: SIMULATION_SPEED
+        value: "1"
+      - key: TICK_MINUTES
+        value: "15"
+      - key: SIMULATOR_START_MODE
+        value: running
+
+  - type: web
+    name: fuelops-intelligence
+    runtime: docker
+    branch: main
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    dockerCommand: uvicorn fuelops.intelligence.main:app --host 0.0.0.0 --port 8090
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - server/**
+    envVars:
+      - key: PORT
+        value: "8090"
+      - key: MODEL_VERSION
+        value: v1
+
+  - type: web
+    name: fuelops-backend
+    runtime: docker
+    branch: main
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    # No dockerCommand: the image's default CMD starts the backend on :8080.
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health/live
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - server/**
+        - frontend/**
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: SIM_BASE_URL
+        value: https://fuelops-simulator.onrender.com
+      - key: INTELLIGENCE_URL
+        value: https://fuelops-intelligence.onrender.com
+      # Random value generated once at creation; copy it from the dashboard (Environment tab) to sign in.
+      - key: OPERATOR_TOKEN
+        generateValue: true
+      - key: CHAOS_ENABLED
+        value: "true"
+      # Optional. Prompted once at Blueprint creation; leave empty to use template explanations.
+      - key: ANTHROPIC_API_KEY
+        sync: false

@@ -6,31 +6,57 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="dark light">
   <title>FuelOps · Operator sign-in</title>
+  <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/login.css">
   <script type="module" src="js/login-page.js"></script>
 </head>
 <body>
-  <main class="login">
-    <p class="badge" aria-label="All data shown is simulated">SIMULATED DATA</p>
-    <h1>FuelOps operator sign-in</h1>
-    <p class="lede">
-      Paste the operator token to approve, reject or modify plans and use the chaos drawer.
-      Viewing the console does not need a token.
-    </p>
+  <div class="login-shell">
+    <aside class="story" aria-label="About FuelOps">
+      <a class="brand" href="./">
+        <svg class="logo" viewBox="0 0 32 32" width="36" height="36" aria-hidden="true" focusable="false">
+          <rect class="logo-tile" x="1" y="1" width="30" height="30" rx="9"/>
+          <path class="logo-drop" d="M16 6.5c3.6 4.3 6.5 8.2 6.5 11.6a6.5 6.5 0 0 1-13 0c0-3.4 2.9-7.3 6.5-11.6z"/>
+          <path class="logo-flow" d="M9.8 19.4c2.1-1.6 4.3-1.6 6.3 0s4.2 1.6 6.1 0"/>
+        </svg>
+        <span><strong>FuelOps</strong><small>Fuel supply intelligence &amp; resilience</small></span>
+      </a>
+      <div class="story-body">
+        <p class="eyebrow">Operator console</p>
+        <p class="headline">See shortages coming.<br>Decide with evidence.<br>Stay in control.</p>
+        <ul class="points">
+          <li><span class="dot ok"></span><span><strong>Predict</strong> stockouts per station and fuel, 4 to 24 hours ahead.</span></li>
+          <li><span class="dot accent"></span><span><strong>Plan</strong> every tick with a linear program, with a heuristic fallback that always works.</span></li>
+          <li><span class="dot warning"></span><span><strong>Review</strong> each shipment: why, constraints, impact before and after, then approve.</span></li>
+        </ul>
+      </div>
+      <p class="fineprint">Every figure comes from the organizer's BUP Fuel Supply Simulator. No real fuel infrastructure is touched.</p>
+    </aside>
 
-    <!-- The script handles submission. method="post" only ensures that, if scripts fail, the token is never put in a
-         URL (the static server answers 405). -->
-    <form id="login-form" method="post" novalidate>
-      <label for="token">Operator token</label>
-      <input id="token" name="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"
-             required aria-describedby="token-hint login-status">
-      <p id="token-hint" class="hint">Set by <code>OPERATOR_TOKEN</code> on the backend. Kept only for this browser tab.</p>
-      <button id="sign-in" type="submit">Sign in</button>
-      <p id="login-status" class="status" role="status" aria-live="polite"></p>
-    </form>
+    <main class="login">
+      <p class="badge" aria-label="All data shown is simulated">SIMULATED DATA</p>
+      <h1>Operator sign-in</h1>
+      <p class="lede">
+        Paste the operator token to approve, reject or modify plans and use the chaos drawer.
+        Viewing the console does not need a token.
+      </p>
 
-    <noscript><p class="status">Sign-in needs JavaScript.</p></noscript>
-  </main>
+      <!-- The script handles submission. method="post" only ensures that, if scripts fail, the token is never put in a
+           URL (the static server answers 405). -->
+      <form id="login-form" method="post" novalidate>
+        <label for="token">Operator token</label>
+        <input id="token" name="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"
+               required aria-describedby="token-hint login-status" placeholder="Paste OPERATOR_TOKEN">
+        <p id="token-hint" class="hint">Set by <code>OPERATOR_TOKEN</code> on the backend. Kept only for this browser tab.</p>
+        <button id="sign-in" type="submit">Sign in</button>
+        <p id="login-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+
+      <a class="back" href="./">← Continue to the console read-only</a>
+      <noscript><p class="status">Sign-in needs JavaScript.</p></noscript>
+    </main>
+  </div>
 </body>
 </html>
