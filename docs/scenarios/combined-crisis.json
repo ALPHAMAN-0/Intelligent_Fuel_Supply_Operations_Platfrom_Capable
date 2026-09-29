@@ -1,0 +1,1504 @@
+{
+ "scenario": {
+  "id": "CR-05",
+  "name": "Combined crisis",
+  "description": "Route disruption, late resupply and a Dhaka demand spike overlap, while the simulator API itself misbehaves: a burst of injected 503 errors and a stretch of stale data. The platform must keep deciding (retries, circuit breaker, cached state), hold automatic approval while data is stale, and still protect the service level.\n",
+  "mode": "assisted",
+  "policy": "planner",
+  "ticks": 60,
+  "events": [
+   {
+    "type": "route_disruption",
+    "start_tick": 2,
+    "duration_ticks": 30,
+    "parameters": {
+     "route_ids": [
+      "route-gazipur-mirpur"
+     ]
+    }
+   },
+   {
+    "type": "shipment_delay",
+    "start_tick": 3,
+    "duration_ticks": 1,
+    "parameters": {
+     "delay_ticks": 8
+    }
+   },
+   {
+    "type": "demand_spike",
+    "start_tick": 6,
+    "duration_ticks": 30,
+    "parameters": {
+     "multiplier": 1.6,
+     "region_ids": [
+      "region-dhaka"
+     ]
+    }
+   }
+  ],
+  "faults": [
+   {
+    "type": "error_rate",
+    "at_tick": 10,
+    "duration_seconds": 8,
+    "parameters": {
+     "rate": 0.3
+    }
+   },
+   {
+    "type": "stale_data",
+    "at_tick": 24,
+    "duration_seconds": 6
+   }
+  ],
+  "expect": {
+   "alerts_raised": [
+    "event",
+    "network"
+   ],
+   "incident_opened": true,
+   "auto_approval_blocked": true,
+   "min_final_service_level": 0.93
+  }
+ },
+ "timeline": [
+  {
+   "tick": 1,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 0.0
+   },
+   "open_alerts": 0,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 883,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 2,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 0.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [
+    "warning event: Scheduled demand spike on region-dhaka (ticks 6-36)",
+    "warning event: Scheduled shipment delay on all entities (ticks 3-4)",
+    "warning event: Scheduled route disruption on route-gazipur-mirpur (ticks 2-32)",
+    "warning supply: Supply supply-001 to depot-gazipur (DIESEL) delayed 8 ticks (ETA tick 20)",
+    "warning supply: Supply supply-003 to depot-patiya (DIESEL) delayed 8 ticks (ETA tick 22)",
+    "warning supply: Supply supply-002 to depot-gazipur (PETROL) delayed 8 ticks (ETA tick 24)",
+    "warning supply: Supply supply-004 to depot-patiya (OCTANE) delayed 8 ticks (ETA tick 28)",
+    "warning supply: Supply supply-101 to depot-gazipur (DIESEL) delayed 8 ticks (ETA tick 72)",
+    "warning supply: Supply supply-102 to depot-gazipur (PETROL) delayed 8 ticks (ETA tick 76)",
+    "warning supply: Supply supply-103 to depot-gazipur (OCTANE) delayed 8 ticks (ETA tick 80)",
+    "warning supply: Supply supply-104 to depot-patiya (DIESEL) delayed 8 ticks (ETA tick 84)",
+    "warning supply: Supply supply-105 to depot-patiya (PETROL) delayed 8 ticks (ETA tick 88)",
+    "warning supply: Supply supply-106 to depot-patiya (OCTANE) delayed 8 ticks (ETA tick 92)",
+    "warning supply: Supply supply-201 to depot-gazipur (DIESEL) delayed 8 ticks (ETA tick 136)",
+    "warning supply: Supply supply-202 to depot-gazipur (PETROL) delayed 8 ticks (ETA tick 140)",
+    "warning supply: Supply supply-203 to depot-gazipur (OCTANE) delayed 8 ticks (ETA tick 144)",
+    "warning supply: Supply supply-204 to depot-patiya (DIESEL) delayed 8 ticks (ETA tick 148)",
+    "warning supply: Supply supply-205 to depot-patiya (PETROL) delayed 8 ticks (ETA tick 152)",
+    "warning supply: Supply supply-206 to depot-patiya (OCTANE) delayed 8 ticks (ETA tick 156)",
+    "warning supply: Supply supply-301 to depot-gazipur (DIESEL) delayed 8 ticks (ETA tick 200)",
+    "warning supply: Supply supply-302 to depot-gazipur (PETROL) delayed 8 ticks (ETA tick 204)",
+    "warning supply: Supply supply-303 to depot-gazipur (OCTANE) delayed 8 ticks (ETA tick 208)",
+    "warning supply: Supply supply-304 to depot-patiya (DIESEL) delayed 8 ticks (ETA tick 212)",
+    "warning supply: Supply supply-305 to depot-patiya (PETROL) delayed 8 ticks (ETA tick 216)",
+    "warning supply: Supply supply-306 to depot-patiya (OCTANE) delayed 8 ticks (ETA tick 220)"
+   ],
+   "incidents_opened": [
+    "Scheduled demand spike on region-dhaka (ticks 6-36)",
+    "Scheduled shipment delay on all entities (ticks 3-4)",
+    "Scheduled route disruption on route-gazipur-mirpur (ticks 2-32)"
+   ],
+   "plan": {
+    "id": 884,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 3,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 0.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 885,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 4,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 0.0
+   },
+   "open_alerts": 26,
+   "new_alerts": [
+    "warning network: Route route-gazipur-mirpur disrupted; reroute via route-patiya-mirpur"
+   ],
+   "incidents_opened": [],
+   "plan": {
+    "id": 886,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 5,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 0.0
+   },
+   "open_alerts": 26,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 887,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 6,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 0.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 888,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 7,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 0.865
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 889,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 8,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 0.865
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 890,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 9,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 0.985
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 891,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 10,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 0.999
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 892,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 11,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 26,
+   "new_alerts": [],
+   "incidents_opened": [
+    "Simulator API degraded (stations): using last good values"
+   ],
+   "plan": {
+    "id": 893,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 12,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 894,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 1100 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 13,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 895,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 1400 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 14,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 896,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 1800 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 15,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 897,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 2200 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 16,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 898,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 2500 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 17,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 899,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 2600 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 18,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 900,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 2700 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 19,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 901,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 2800 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 20,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 902,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 2900 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 21,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 903,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3000 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 22,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 25,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 904,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3000 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 23,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 24,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 905,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3200 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 24,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 23,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 906,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3200 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 25,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 24,
+   "new_alerts": [],
+   "incidents_opened": [
+    "Simulator reports stale data: automatic approval blocked"
+   ],
+   "plan": {
+    "id": 907,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3100 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 26,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-tongi DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 23,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 908,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3000 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 27,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 23,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 909,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3200 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 28,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 23,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 910,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3200 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 29,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 23,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 911,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3400 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 30,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 22,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 912,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3600 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 31,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 22,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 913,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3800 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 32,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 22,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 914,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 3900 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 33,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 22,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 915,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 4100 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 34,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 20,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 916,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 4300 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 35,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 20,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 917,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 4500 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 36,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 20,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 918,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 4700 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 37,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 20,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 919,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 5100 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 38,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 19,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 920,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 5400 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 39,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 19,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 921,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 5700 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 40,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 20,
+   "new_alerts": [
+    "warning shortage: Shortage risk station-tongi DIESEL: stockout in 4.0 h, P(4h) 51%"
+   ],
+   "incidents_opened": [
+    "Shortage risk at station-tongi"
+   ],
+   "plan": {
+    "id": 922,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 5900 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": true
+  },
+  {
+   "tick": 41,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 20,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 923,
+    "policy": "planner",
+    "status": "PROPOSED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 6100 L [PROPOSED]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 42,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 19,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 924,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 6300 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 43,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 925,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 44,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur PETROL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 926,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-gazipur->station-mirpur PETROL 1100 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 45,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 19,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 927,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 6500 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 46,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 928,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-patiya->station-karnaphuli DIESEL 1200 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 47,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 929,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-gazipur->station-mirpur PETROL 1900 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 48,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 930,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-gazipur->station-tongi DIESEL 1400 L [PENDING]",
+     "depot-patiya->station-karnaphuli PETROL 1000 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 49,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 931,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-patiya->station-karnaphuli DIESEL 1900 L [PENDING]",
+     "depot-gazipur->station-mirpur OCTANE 1000 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 50,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 932,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-gazipur->station-mirpur PETROL 1500 L [PENDING]",
+     "depot-patiya->station-karnaphuli OCTANE 1000 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 51,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 933,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-patiya->station-karnaphuli PETROL 1700 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 52,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 934,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-patiya->station-karnaphuli DIESEL 1400 L [PENDING]",
+     "depot-gazipur->station-mirpur OCTANE 1400 L [PENDING]",
+     "depot-patiya->station-coxsbazar PETROL 1000 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 53,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 935,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-patiya->station-karnaphuli OCTANE 1500 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 54,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 936,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-patiya->station-karnaphuli PETROL 1400 L [PENDING]",
+     "depot-gazipur->station-mirpur DIESEL 1000 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 55,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur OCTANE",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 937,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 56,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-karnaphuli OCTANE",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 938,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-patiya->station-coxsbazar PETROL 1400 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 57,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 939,
+    "policy": "planner",
+    "status": "EXECUTED",
+    "lines": [
+     "depot-gazipur->station-mirpur DIESEL 1500 L [PENDING]",
+     "depot-patiya->station-coxsbazar DIESEL 1000 L [PENDING]"
+    ]
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 58,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 0.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 940,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 59,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 0.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 941,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  },
+  {
+   "tick": 60,
+   "service_level": 1.0,
+   "stockout_series": 0,
+   "top_risk": {
+    "series": "station-mirpur DIESEL",
+    "p_stockout_12h": 1.0
+   },
+   "open_alerts": 18,
+   "new_alerts": [],
+   "incidents_opened": [],
+   "plan": {
+    "id": 942,
+    "policy": "planner",
+    "status": "EMPTY",
+    "lines": []
+   },
+   "fallback": false,
+   "stale": false
+  }
+ ],
+ "facts": {
+  "alert_kinds": [
+   "event",
+   "network",
+   "shortage",
+   "supply",
+   "system"
+  ],
+  "open_alert_kinds_at_end": [
+   "supply"
+  ],
+  "incidents": [
+   {
+    "title": "Scheduled shipment delay on all entities (ticks 3-4)",
+    "status": "open",
+    "opened_tick": 1,
+    "resolved_tick": null
+   },
+   {
+    "title": "Shortage risk at station-tongi",
+    "status": "resolved",
+    "opened_tick": 44,
+    "resolved_tick": 45
+   },
+   {
+    "title": "Scheduled route disruption on route-gazipur-mirpur (ticks 2-32)",
+    "status": "resolved",
+    "opened_tick": 1,
+    "resolved_tick": 33
+   },
+   {
+    "title": "Simulator reports stale data: automatic approval blocked",
+    "status": "resolved",
+    "opened_tick": 24,
+    "resolved_tick": 41
+   },
+   {
+    "title": "Simulator API degraded (events): using last good values",
+    "status": "resolved",
+    "opened_tick": 21,
+    "resolved_tick": 22
+   },
+   {
+    "title": "Scheduled demand spike on region-dhaka (ticks 6-36)",
+    "status": "resolved",
+    "opened_tick": 1,
+    "resolved_tick": 37
+   }
+  ],
+  "plan_line_stations": [
+   "station-coxsbazar",
+   "station-karnaphuli",
+   "station-mirpur",
+   "station-tongi"
+  ],
+  "allocation_routes": [
+   "route-gazipur-mirpur",
+   "route-gazipur-tongi",
+   "route-patiya-coxsbazar",
+   "route-patiya-karnaphuli"
+  ],
+  "allocations": 21,
+  "auto_approved": 141,
+  "needs_review": 65,
+  "final_service_level": 1.0,
+  "min_service_level": 1.0,
+  "peak_risk": {
+   "tick": 11,
+   "series": "station-tongi DIESEL",
+   "p_stockout_12h": 1.0
+  },
+  "fallback_ticks": 0,
+  "stale_ticks": 17
+ },
+ "explanation": "Tick 56: 2 shipment(s), 2,500 L in total (planner policy). Projected unmet demand over the next 24 ticks falls from 0 L to 0 L (0 L avoided).\n- station-mirpur DIESEL: stockout in 8.0 h without action; ship 1,500 L via route-gazipur-mirpur (arrives tick 59); P(stockout within 6 h) 0% -> 0%; stock at horizon end 686 -> 2,186 L; confidence 82%.\n- station-coxsbazar DIESEL: stockout in 9.0 h without action; ship 1,000 L via route-patiya-coxsbazar (arrives tick 60); P(stockout within 6 h) 0% -> 0%; stock at horizon end 738 -> 1,738 L; confidence 82%.",
+ "checks": [
+  {
+   "check": "alert raised: event",
+   "ok": true,
+   "detail": "kinds seen ['event', 'network', 'shortage', 'supply', 'system']"
+  },
+  {
+   "check": "alert raised: network",
+   "ok": true,
+   "detail": "kinds seen ['event', 'network', 'shortage', 'supply', 'system']"
+  },
+  {
+   "check": "incident opened",
+   "ok": true,
+   "detail": "6 incident(s)"
+  },
+  {
+   "check": "final service level >= 0.93",
+   "ok": true,
+   "detail": "1.0"
+  },
+  {
+   "check": "stale data blocked auto-approval",
+   "ok": true,
+   "detail": "17 stale tick(s), 65 line(s) held for review"
+  }
+ ]
+}

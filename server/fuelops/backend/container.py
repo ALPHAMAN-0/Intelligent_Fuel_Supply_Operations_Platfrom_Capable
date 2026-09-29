@@ -49,6 +49,11 @@ class Container:
     sim_health_error: str | None = None
     tasks: list[asyncio.Task] = field(default_factory=list)
     _bg: set = field(default_factory=set)
+    # Public what-if evaluations run the LP; cap how many run at once so the endpoint cannot starve the planner.
+    evaluate_slots: asyncio.Semaphore = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.evaluate_slots = asyncio.Semaphore(self.settings.evaluate_max_concurrency)
 
     # ------------------------------------------------------------ lifecycle
 

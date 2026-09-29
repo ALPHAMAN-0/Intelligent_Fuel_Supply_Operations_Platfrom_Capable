@@ -1,0 +1,237 @@
+{
+ "id": 1673,
+ "run_id": 15,
+ "tick": 151,
+ "policy": "planner",
+ "mode": "assisted",
+ "status": "EXECUTED",
+ "created_at": "2026-09-29T07:17:45.985884Z",
+ "expires_tick": 153,
+ "stale_inputs": false,
+ "fallback_reason": null,
+ "result": {
+  "policy": "planner",
+  "tick": 151,
+  "horizon_ticks": 24,
+  "lines": [
+   {
+    "line_no": 1,
+    "route_id": "route-patiya-coxsbazar",
+    "depot_id": "depot-patiya",
+    "station_id": "station-coxsbazar",
+    "fuel_type": "PETROL",
+    "quantity": 1400.0,
+    "parts": [
+     1400.0
+    ],
+    "arrival_tick": 155,
+    "reason": "Ship 1400 L PETROL depot-patiya -> station-coxsbazar, arriving tick 155: keeps cover: stock at the end of the 6 h horizon rises from 428 L to 1828 L",
+    "signals": [
+     "stockout in 7.0 h without action",
+     "P(stockout within 6 h) 0%",
+     "forecast demand 2596 L over 6 h",
+     "single-route station"
+    ],
+    "binding": [],
+    "risk_before": {
+     "p_stockout": 0.0,
+     "horizon_hours": 6.0,
+     "hours_to_stockout": 7.0,
+     "projected_unmet_liters": 0.0,
+     "end_inventory_liters": 428.0
+    },
+    "risk_after": {
+     "p_stockout": 0.0,
+     "horizon_hours": 6.0,
+     "hours_to_stockout": 13.25,
+     "projected_unmet_liters": 0.0,
+     "end_inventory_liters": 1828.0
+    },
+    "alternatives": [
+     {
+      "description": "Skip this shipment",
+      "route_id": null,
+      "delta_unmet_liters": 0.0
+     }
+    ],
+    "confidence": 0.95
+   },
+   {
+    "line_no": 2,
+    "route_id": "route-gazipur-mirpur",
+    "depot_id": "depot-gazipur",
+    "station_id": "station-mirpur",
+    "fuel_type": "OCTANE",
+    "quantity": 1000.0,
+    "parts": [
+     1000.0
+    ],
+    "arrival_tick": 154,
+    "reason": "Ship 1000 L OCTANE depot-gazipur -> station-mirpur, arriving tick 154: keeps cover: stock at the end of the 6 h horizon rises from 437 L to 1437 L",
+    "signals": [
+     "stockout in 7.8 h without action",
+     "P(stockout within 6 h) 0%",
+     "forecast demand 1692 L over 6 h"
+    ],
+    "binding": [],
+    "risk_before": {
+     "p_stockout": 0.0,
+     "horizon_hours": 6.0,
+     "hours_to_stockout": 7.75,
+     "projected_unmet_liters": 0.0,
+     "end_inventory_liters": 436.8
+    },
+    "risk_after": {
+     "p_stockout": 0.0,
+     "horizon_hours": 6.0,
+     "hours_to_stockout": 13.75,
+     "projected_unmet_liters": 0.0,
+     "end_inventory_liters": 1436.8
+    },
+    "alternatives": [
+     {
+      "description": "Skip this shipment",
+      "route_id": null,
+      "delta_unmet_liters": 0.0
+     },
+     {
+      "description": "Ship 1000 L via route-patiya-mirpur (arrives tick 156)",
+      "route_id": "route-patiya-mirpur",
+      "delta_unmet_liters": 0.0
+     }
+    ],
+    "confidence": 0.95
+   }
+  ],
+  "objective": 1.307,
+  "projected_unmet_before": 0.0,
+  "projected_unmet_after": 0.0,
+  "binding_constraints": [],
+  "rationing": [],
+  "notes": [],
+  "solver_status": "OPTIMAL",
+  "solve_ms": 30.41
+ },
+ "lines": [
+  {
+   "line_no": 1,
+   "route_id": "route-patiya-coxsbazar",
+   "depot_id": "depot-patiya",
+   "station_id": "station-coxsbazar",
+   "fuel_type": "PETROL",
+   "quantity": 1400.0,
+   "parts": [
+    1400.0
+   ],
+   "arrival_tick": 155,
+   "reason": "Ship 1400 L PETROL depot-patiya -> station-coxsbazar, arriving tick 155: keeps cover: stock at the end of the 6 h horizon rises from 428 L to 1828 L",
+   "signals": [
+    "stockout in 7.0 h without action",
+    "P(stockout within 6 h) 0%",
+    "forecast demand 2596 L over 6 h",
+    "single-route station"
+   ],
+   "binding": [],
+   "risk_before": {
+    "p_stockout": 0.0,
+    "horizon_hours": 6.0,
+    "hours_to_stockout": 7.0,
+    "projected_unmet_liters": 0.0,
+    "end_inventory_liters": 428.0
+   },
+   "risk_after": {
+    "p_stockout": 0.0,
+    "horizon_hours": 6.0,
+    "hours_to_stockout": 13.25,
+    "projected_unmet_liters": 0.0,
+    "end_inventory_liters": 1828.0
+   },
+   "alternatives": [
+    {
+     "description": "Skip this shipment",
+     "route_id": null,
+     "delta_unmet_liters": 0.0
+    }
+   ],
+   "confidence": 0.95,
+   "status": "ARRIVED",
+   "submissions": [
+    {
+     "part": 0,
+     "quantity": 1400.0,
+     "idempotency_key": "fo-15-1673-1-0",
+     "allocation_id": 98,
+     "status": "ARRIVED",
+     "http_status": 201,
+     "error": null
+    }
+   ],
+   "approved_by": "auto:assisted",
+   "decision_reason": null,
+   "needs_review_reason": null
+  },
+  {
+   "line_no": 2,
+   "route_id": "route-gazipur-mirpur",
+   "depot_id": "depot-gazipur",
+   "station_id": "station-mirpur",
+   "fuel_type": "OCTANE",
+   "quantity": 1000.0,
+   "parts": [
+    1000.0
+   ],
+   "arrival_tick": 154,
+   "reason": "Ship 1000 L OCTANE depot-gazipur -> station-mirpur, arriving tick 154: keeps cover: stock at the end of the 6 h horizon rises from 437 L to 1437 L",
+   "signals": [
+    "stockout in 7.8 h without action",
+    "P(stockout within 6 h) 0%",
+    "forecast demand 1692 L over 6 h"
+   ],
+   "binding": [],
+   "risk_before": {
+    "p_stockout": 0.0,
+    "horizon_hours": 6.0,
+    "hours_to_stockout": 7.75,
+    "projected_unmet_liters": 0.0,
+    "end_inventory_liters": 436.8
+   },
+   "risk_after": {
+    "p_stockout": 0.0,
+    "horizon_hours": 6.0,
+    "hours_to_stockout": 13.75,
+    "projected_unmet_liters": 0.0,
+    "end_inventory_liters": 1436.8
+   },
+   "alternatives": [
+    {
+     "description": "Skip this shipment",
+     "route_id": null,
+     "delta_unmet_liters": 0.0
+    },
+    {
+     "description": "Ship 1000 L via route-patiya-mirpur (arrives tick 156)",
+     "route_id": "route-patiya-mirpur",
+     "delta_unmet_liters": 0.0
+    }
+   ],
+   "confidence": 0.95,
+   "status": "ARRIVED",
+   "submissions": [
+    {
+     "part": 0,
+     "quantity": 1000.0,
+     "idempotency_key": "fo-15-1673-2-0",
+     "allocation_id": 99,
+     "status": "ARRIVED",
+     "http_status": 201,
+     "error": null
+    }
+   ],
+   "approved_by": "auto:assisted",
+   "decision_reason": null,
+   "needs_review_reason": null
+  }
+ ],
+ "explanation": "Tick 151: 2 shipment(s), 2,400 L in total (planner policy). Projected unmet demand over the next 24 ticks falls from 0 L to 0 L (0 L avoided).\n- station-coxsbazar PETROL: stockout in 7.0 h without action; ship 1,400 L via route-patiya-coxsbazar (arrives tick 155); P(stockout within 6 h) 0% -> 0%; stock at horizon end 428 -> 1,828 L; confidence 95%.\n- station-mirpur OCTANE: stockout in 7.8 h without action; ship 1,000 L via route-gazipur-mirpur (arrives tick 154); P(stockout within 6 h) 0% -> 0%; stock at horizon end 437 -> 1,437 L; confidence 95%.",
+ "explanation_source": "template"
+}

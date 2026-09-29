@@ -285,44 +285,60 @@ class Orchestrator:
             raise DecisionError(404, f"plan {plan.id} has no line(s) {missing}")
         return [by_no[n] for n in line_nos]
 
+    # Operator actions hold the cycle lock, so no newer plan can supersede lines mid-action, and re-check each line
+    # after every await because _expire() (sync hook) may still expire it meanwhile.
+
     async def approve(self, plan_id: int, line_nos: list[int] | None, actor: str, reason: str | None) -> PlanRecord:
-        plan = self.get_plan(plan_id)
-        state = self.cache.state
-        if state is None or plan.run_id != state.run_id:
-            raise DecisionError(409, "plan belongs to a previous simulator run")
-        lines = self._lines(plan, line_nos)
-        not_reviewable = [ln.line_no for ln in lines if ln.status not in REVIEWABLE]
-        if not_reviewable:
-            raise DecisionError(409, f"line(s) {not_reviewable} are not awaiting approval")
-        if not lines:
-            raise DecisionError(409, "nothing to approve")
-        for line in lines:
-            line.status, line.approved_by = "APPROVED", actor
-            await self._decide(plan, line.line_no, actor, "approve", reason)
-            await self.actuator.submit_line(plan, line)
-            await self._decide(plan, line.line_no, "system", "submit", line.decision_reason,
-                               {"status": line.status, "keys": [s.idempotency_key for s in line.submissions]})
-        plan.refresh_status()
-        await self.store.upsert_plan(plan)
-        await self._emit("plan.updated", plan.model_dump(mode="json"))
-        return plan
+        async with self._lock:
+            plan = self.get_plan(plan_id)
+            state = self.cache.state
+            if state is None or plan.run_id != state.run_id:
+                raise DecisionError(409, "plan belongs to a previous simulator run")
+            lines = self._lines(plan, line_nos)
+            not_reviewable = [ln.line_no for ln in lines if ln.status not in REVIEWABLE]
+            if not_reviewable:
+                raise DecisionError(409, f"line(s) {not_reviewable} are not awaiting approval")
+            if not lines:
+                raise DecisionError(409, "nothing to approve")
+            for line in lines:
+                if line.status not in REVIEWABLE:
+                    await self._decide(plan, line.line_no, "system", "skip",
+                                       f"line became {line.status} before it could be submitted")
+                    continue
+                line.status, line.approved_by = "APPROVED", actor
+                await self._decide(plan, line.line_no, actor, "approve", reason)
+                await self.actuator.submit_line(plan, line)
+                await self._decide(plan, line.line_no, "system", "submit", line.decision_reason,
+                                   {"status": line.status, "keys": [s.idempotency_key for s in line.submissions]})
+            plan.refresh_status()
+            await self.store.upsert_plan(plan)
+            await self._emit("plan.updated", plan.model_dump(mode="json"))
+            return plan
 
     async def reject(self, plan_id: int, line_nos: list[int] | None, actor: str, reason: str | None) -> PlanRecord:
-        plan = self.get_plan(plan_id)
-        lines = self._lines(plan, line_nos)
-        bad = [ln.line_no for ln in lines if ln.status not in REVIEWABLE]
-        if bad:
-            raise DecisionError(409, f"line(s) {bad} are not awaiting approval")
-        for line in lines:
-            line.status, line.decision_reason = "REJECTED", reason
-            await self._decide(plan, line.line_no, actor, "reject", reason)
-        plan.refresh_status()
-        await self.store.upsert_plan(plan)
-        await self._emit("plan.updated", plan.model_dump(mode="json"))
-        return plan
+        async with self._lock:
+            plan = self.get_plan(plan_id)
+            lines = self._lines(plan, line_nos)
+            bad = [ln.line_no for ln in lines if ln.status not in REVIEWABLE]
+            if bad:
+                raise DecisionError(409, f"line(s) {bad} are not awaiting approval")
+            for line in lines:
+                if line.status not in REVIEWABLE:
+                    continue
+                line.status, line.decision_reason = "REJECTED", reason
+                await self._decide(plan, line.line_no, actor, "reject", reason)
+            plan.refresh_status()
+            await self.store.upsert_plan(plan)
+            await self._emit("plan.updated", plan.model_dump(mode="json"))
+            return plan
 
     async def modify(self, plan_id: int, line_no: int, quantity: float, route_id: str | None, actor: str,
                      reason: str | None) -> tuple[PlanRecord, EvaluateResponse]:
+        async with self._lock:
+            return await self._modify(plan_id, line_no, quantity, route_id, actor, reason)
+
+    async def _modify(self, plan_id: int, line_no: int, quantity: float, route_id: str | None, actor: str,
+                      reason: str | None) -> tuple[PlanRecord, EvaluateResponse]:
         plan = self.get_plan(plan_id)
         line = self._lines(plan, [line_no])[0]
         if line.status not in REVIEWABLE:
@@ -338,6 +354,8 @@ class Orchestrator:
             raise DecisionError(422, "quantity must be > 0 and at most 5 x max_shipment")
         evaluation = await self.evaluate([FixedLine(route_id=new_route.id, fuel_type=line.fuel_type,
                                                     quantity=quantity)])
+        if line.status not in REVIEWABLE:
+            raise DecisionError(409, f"line {line_no} became {line.status} during the what-if; nothing changed")
         before = {"route_id": line.route_id, "quantity": line.quantity}
         parts, remaining = [], quantity
         while remaining > new_route.max_shipment:

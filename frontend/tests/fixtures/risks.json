@@ -1,0 +1,244 @@
+[
+ {
+  "station_id": "station-mirpur",
+  "fuel_type": "DIESEL",
+  "station_status": "OPEN",
+  "on_hand": 8940.412,
+  "in_transit": 0.0,
+  "capacity": 15000.0,
+  "inventory_position": 8940.412,
+  "hours_to_stockout": null,
+  "stockout_tick": null,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 0.0
+  },
+  "demand_next_24h": 8047.0,
+  "confidence": 0.653,
+  "notes": []
+ },
+ {
+  "station_id": "station-mirpur",
+  "fuel_type": "PETROL",
+  "station_status": "OPEN",
+  "on_hand": 8928.727,
+  "in_transit": 0.0,
+  "capacity": 14000.0,
+  "inventory_position": 8928.727,
+  "hours_to_stockout": 21.0,
+  "stockout_tick": 85,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 1.0
+  },
+  "demand_next_24h": 9913.0,
+  "confidence": 0.653,
+  "notes": []
+ },
+ {
+  "station_id": "station-mirpur",
+  "fuel_type": "OCTANE",
+  "station_status": "OPEN",
+  "on_hand": 4962.369,
+  "in_transit": 0.0,
+  "capacity": 9000.0,
+  "inventory_position": 4962.369,
+  "hours_to_stockout": 22.25,
+  "stockout_tick": 90,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 1.0
+  },
+  "demand_next_24h": 5282.5,
+  "confidence": 0.653,
+  "notes": []
+ },
+ {
+  "station_id": "station-tongi",
+  "fuel_type": "DIESEL",
+  "station_status": "OPEN",
+  "on_hand": 10930.472,
+  "in_transit": 0.0,
+  "capacity": 18000.0,
+  "inventory_position": 10930.472,
+  "hours_to_stockout": 16.0,
+  "stockout_tick": 65,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 1.0
+  },
+  "demand_next_24h": 14047.3,
+  "confidence": 0.653,
+  "notes": [
+   "single-route station"
+  ]
+ },
+ {
+  "station_id": "station-tongi",
+  "fuel_type": "PETROL",
+  "station_status": "OPEN",
+  "on_hand": 5979.3,
+  "in_transit": 0.0,
+  "capacity": 9000.0,
+  "inventory_position": 5979.3,
+  "hours_to_stockout": null,
+  "stockout_tick": null,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 0.0
+  },
+  "demand_next_24h": 4495.2,
+  "confidence": 0.653,
+  "notes": [
+   "single-route station"
+  ]
+ },
+ {
+  "station_id": "station-tongi",
+  "fuel_type": "OCTANE",
+  "station_status": "OPEN",
+  "on_hand": 3489.95,
+  "in_transit": 0.0,
+  "capacity": 6000.0,
+  "inventory_position": 3489.95,
+  "hours_to_stockout": null,
+  "stockout_tick": null,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 0.0
+  },
+  "demand_next_24h": 2196.8,
+  "confidence": 0.653,
+  "notes": [
+   "single-route station"
+  ]
+ },
+ {
+  "station_id": "station-karnaphuli",
+  "fuel_type": "DIESEL",
+  "station_status": "OPEN",
+  "on_hand": 8412.299,
+  "in_transit": 0.0,
+  "capacity": 14000.0,
+  "inventory_position": 8412.299,
+  "hours_to_stockout": 18.5,
+  "stockout_tick": 75,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 1.0
+  },
+  "demand_next_24h": 11046.1,
+  "confidence": 0.653,
+  "notes": []
+ },
+ {
+  "station_id": "station-karnaphuli",
+  "fuel_type": "PETROL",
+  "station_status": "OPEN",
+  "on_hand": 9400.924,
+  "in_transit": 1000.0,
+  "capacity": 15000.0,
+  "inventory_position": 10400.924,
+  "hours_to_stockout": 20.75,
+  "stockout_tick": 84,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 1.0
+  },
+  "demand_next_24h": 11656.1,
+  "confidence": 0.653,
+  "notes": [
+   "1000 L in transit"
+  ]
+ },
+ {
+  "station_id": "station-karnaphuli",
+  "fuel_type": "OCTANE",
+  "station_status": "OPEN",
+  "on_hand": 5144.686,
+  "in_transit": 0.0,
+  "capacity": 9000.0,
+  "inventory_position": 5144.686,
+  "hours_to_stockout": 18.75,
+  "stockout_tick": 76,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 1.0
+  },
+  "demand_next_24h": 6563.6,
+  "confidence": 0.653,
+  "notes": []
+ },
+ {
+  "station_id": "station-coxsbazar",
+  "fuel_type": "DIESEL",
+  "station_status": "OPEN",
+  "on_hand": 7451.17,
+  "in_transit": 0.0,
+  "capacity": 12000.0,
+  "inventory_position": 7451.17,
+  "hours_to_stockout": 22.75,
+  "stockout_tick": 92,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 0.9998
+  },
+  "demand_next_24h": 7730.8,
+  "confidence": 0.653,
+  "notes": [
+   "single-route station"
+  ]
+ },
+ {
+  "station_id": "station-coxsbazar",
+  "fuel_type": "PETROL",
+  "station_status": "OPEN",
+  "on_hand": 7444.752,
+  "in_transit": 0.0,
+  "capacity": 12000.0,
+  "inventory_position": 7444.752,
+  "hours_to_stockout": 20.75,
+  "stockout_tick": 84,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 1.0
+  },
+  "demand_next_24h": 8204.1,
+  "confidence": 0.653,
+  "notes": [
+   "single-route station"
+  ]
+ },
+ {
+  "station_id": "station-coxsbazar",
+  "fuel_type": "OCTANE",
+  "station_status": "OPEN",
+  "on_hand": 4172.414,
+  "in_transit": 0.0,
+  "capacity": 7000.0,
+  "inventory_position": 4172.414,
+  "hours_to_stockout": null,
+  "stockout_tick": null,
+  "p_stockout": {
+   "4h": 0.0,
+   "12h": 0.0,
+   "24h": 0.0
+  },
+  "demand_next_24h": 3902.9,
+  "confidence": 0.653,
+  "notes": [
+   "single-route station"
+  ]
+ }
+]

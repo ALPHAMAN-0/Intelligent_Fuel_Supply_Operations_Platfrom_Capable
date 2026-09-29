@@ -1,0 +1,30 @@
+id: CR-04
+name: Regional disruption
+description: >
+  The direct Gazipur -> Mirpur route is DISRUPTED for 9 hours while Mirpur's demand doubles, so Mirpur must be
+  resupplied before the route reopens; Cox's Bazar station also has a 2-hour outage (a closed station serves nothing,
+  so its demand counts as unmet whatever the platform does). The platform must raise network alerts, reroute Mirpur
+  through the longer Patiya -> Mirpur route, stop shipping to the closed station, and clear the alerts on recovery.
+mode: auto
+policy: planner
+ticks: 48
+events:
+  - type: route_disruption
+    start_tick: 2
+    duration_ticks: 36
+    parameters: { route_ids: [route-gazipur-mirpur] }
+  - type: demand_spike
+    start_tick: 2
+    duration_ticks: 36
+    parameters: { multiplier: 2.2, station_ids: [station-mirpur] }
+  - type: station_outage
+    start_tick: 6
+    duration_ticks: 8
+    parameters: { station_ids: [station-coxsbazar] }
+expect:
+  alerts_raised: [event, network]
+  plan_lines_to: [station-mirpur]
+  allocations_via: [route-patiya-mirpur]
+  no_allocations_via: [route-gazipur-mirpur]
+  resolved_by_end: [network]
+  min_final_service_level: 0.95

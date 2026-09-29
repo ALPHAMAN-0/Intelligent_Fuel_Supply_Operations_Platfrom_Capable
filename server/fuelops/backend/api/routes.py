@@ -16,15 +16,25 @@ from fuelops.backend.container import Container
 from fuelops.backend.decision.orchestrator import DecisionError
 from fuelops.backend.integration.sim_errors import ErrorKind, SimError
 from fuelops.shared import spec
+from fuelops.shared.logging import get_logger
+from fuelops.shared.metrics import AUTH_REJECTED
 from fuelops.shared.models import FixedLine
 from fuelops.shared.sim_models import EventInjection, FaultInjection
 from fuelops.shared.world import in_transit_arrivals, project_series, relative_arrivals, station_open_at, supply_etas
 
 router = APIRouter(prefix="/api")
+log = get_logger("api")
 
 
 def container(request: Request) -> Container:
     return request.app.state.container
+
+
+def _reject(request: Request, reason: str) -> HTTPException:
+    AUTH_REJECTED.labels(reason).inc()
+    log.warning("auth.rejected", reason=reason, path=request.url.path,
+                client=request.client.host if request.client else None)
+    return HTTPException(401, "operator token required", headers={"WWW-Authenticate": "Bearer"})
 
 
 def require_operator(request: Request, authorization: str | None = Header(default=None)) -> str:
@@ -33,9 +43,10 @@ def require_operator(request: Request, authorization: str | None = Header(defaul
         raise HTTPException(503, "OPERATOR_TOKEN is not configured on the server")
     scheme, _, supplied = (authorization or "").strip().partition(" ")
     supplied = supplied.strip()
-    if scheme.lower() != "bearer" or not supplied \
-            or not hmac.compare_digest(supplied.encode(), token.get_secret_value().encode()):
-        raise HTTPException(401, "operator token required", headers={"WWW-Authenticate": "Bearer"})
+    if scheme.lower() != "bearer" or not supplied:
+        raise _reject(request, "missing")
+    if not hmac.compare_digest(supplied.encode(), token.get_secret_value().encode()):
+        raise _reject(request, "invalid")
     return "operator"
 
 
@@ -318,10 +329,13 @@ async def explain(plan_id: int, c: Container = Depends(container),
 
 @router.post("/evaluate")
 async def evaluate(body: EvaluateBody, c: Container = Depends(container)) -> dict[str, Any]:
-    try:
-        return (await c.orchestrator.evaluate(body.lines)).model_dump(mode="json")
-    except DecisionError as exc:
-        raise _decision(exc) from exc
+    if c.evaluate_slots.locked():
+        raise HTTPException(429, "too many what-if evaluations in progress; retry shortly", headers={"Retry-After": "1"})
+    async with c.evaluate_slots:
+        try:
+            return (await c.orchestrator.evaluate(body.lines)).model_dump(mode="json")
+        except DecisionError as exc:
+            raise _decision(exc) from exc
 
 
 @router.get("/decisions")
@@ -476,7 +490,11 @@ class DbFault(BaseModel):
 
 @router.post("/chaos/app/database")
 async def chaos_db(body: DbFault, c: Container = Depends(container), actor: str = Depends(require_chaos)) -> dict:
-    c.store.force_fault(body.down)
+    if not body.down:
+        c.store.force_fault(False)
+    await c.store.audit(actor, "chaos.database", {"down": body.down})  # written while the store is still up
+    if body.down:
+        c.store.force_fault(True)
     return {"database_down": body.down}
 
 
@@ -493,7 +511,7 @@ async def chaos_action(action: Literal["run", "pause", "step", "reset", "faults/
 
 
 @router.get("/chaos/status")
-async def chaos_status(c: Container = Depends(container)) -> dict[str, Any]:
+async def chaos_status(c: Container = Depends(container), actor: str = Depends(require_chaos)) -> dict[str, Any]:
     out: dict[str, Any] = {"database_down": c.store.forced_fault}
     for path in ("faults", "events"):
         try:

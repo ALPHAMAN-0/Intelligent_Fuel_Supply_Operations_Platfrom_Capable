@@ -45,6 +45,8 @@ markers = [
   "req(*ids): requirement ids from plan.json covered by the test (used by the QA catalog)",
 ]
 addopts = "-m 'not integration'"
+# PuLP 3 emits 4.0-deprecation warnings (PULP_CBC_CMD, LpVariable(...)) on every solve; requirements.txt pins PuLP<4.
+filterwarnings = ["ignore::DeprecationWarning:pulp"]
 
 [tool.ruff]
 line-length = 120
@@ -52,4 +54,5 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "ASYNC"]
-ignore = ["E501", "B008"]
+# UP042 (str+Enum -> StrEnum) changes str() of the error/breaker enums, which appear in logs and API payloads.
+ignore = ["E501", "B008", "UP042"]

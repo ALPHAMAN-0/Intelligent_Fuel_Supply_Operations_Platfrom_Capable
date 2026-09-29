@@ -8,8 +8,6 @@ Markers: `unit` (default).
 
 from __future__ import annotations
 
-import math
-
 import pytest
 from pydantic import ValidationError
 
@@ -29,7 +27,6 @@ from fuelops.shared.world import (
     in_transit_arrivals,
     p_stockout,
     prior_forecast,
-    prior_mu,
     project_series,
     relative_arrivals,
     sim_time_at,
@@ -37,7 +34,6 @@ from fuelops.shared.world import (
     ticks_to_hours,
 )
 from tests.factories import make_world, synth_history
-
 
 pytestmark = pytest.mark.unit
 
@@ -202,7 +198,7 @@ def test_TC_D_014_route_usable_requires_depart_and_arrival_clear() -> None:
     w = make_world()
     from tests.factories import add_event
     r = next(r for r in w.routes if r.id == "route-gazipur-mirpur")
-    from fuelops.shared.world import route_usable, WorldIndex
+    from fuelops.shared.world import WorldIndex, route_usable
     idx = WorldIndex(w)
     # Baseline
     assert route_usable(w, idx, r, create_tick=10) is True
@@ -311,8 +307,8 @@ def test_TC_D_022_relative_arrivals_rebase() -> None:
 
 # ------------------------------------------------------------------------ TC-D-023
 def test_TC_D_023_event_hits_empty_means_all() -> None:
-    from fuelops.shared.world import event_hits, event_hits_station
     from fuelops.shared.sim_models import SimEvent
+    from fuelops.shared.world import event_hits, event_hits_station
     w = make_world()
     st_mirpur = next(s for s in w.stations if s.id == "station-mirpur")
     empty = SimEvent(id=1, type="demand_spike", start_tick=0, end_tick=1, status="ACTIVE", parameters={})
@@ -354,7 +350,7 @@ def test_TC_D_025_synth_history_expected_rows() -> None:
 
 # ------------------------------------------------------------------------ TC-D-026
 def test_TC_D_026_add_event_and_allocation_have_deterministic_ids() -> None:
-    from tests.factories import add_event, add_allocation
+    from tests.factories import add_allocation, add_event
     w = make_world()
     e1 = add_event(w, "demand_spike", start=10, end=20, status="SCHEDULED", station_ids=["station-mirpur"],
                    multiplier=1.5)
@@ -392,7 +388,7 @@ def test_TC_D_028_settings_env_overrides_dotenv(tmp_path, monkeypatch) -> None:
 # ------------------------------------------------------------------------ TC-D-029
 def test_TC_D_029_configure_logging_emits_json(capsys) -> None:
     import json
-    import logging
+
     from fuelops.shared.logging import configure_logging, get_logger
     configure_logging("INFO", "test-svc")
     log = get_logger("test")
@@ -418,7 +414,6 @@ def test_TC_D_030_numeric_fields_reject_negative_and_nan() -> None:
               capacity={"DIESEL": 1, "PETROL": 1, "OCTANE": 1},
               inventory={"DIESEL": 1, "PETROL": 0, "OCTANE": 0})
     # tick_minutes has gt=0 on Instance.
-    from fuelops.shared.sim_models import Instance
     with pytest.raises(ValidationError):
         Instance(id=1, scenario_id="x", sim_time=__import__("datetime").datetime(2026, 1, 1),
                  tick=0, tick_minutes=0, status="PAUSED")

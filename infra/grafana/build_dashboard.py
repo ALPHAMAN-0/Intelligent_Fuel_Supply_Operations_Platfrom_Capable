@@ -48,7 +48,7 @@ ROWS: list[tuple[dict, list[dict]]] = [
             target(BACKEND_P.format(q=0.5), "p50", "A"), target(BACKEND_P.format(q=0.95), "p95", "B"),
             target(BACKEND_P.format(q=0.99), "p99", "C")], 12, 8, "s"),
         panel("timeseries", "5xx error rate", [target(
-            'sum(rate(fuelops_http_requests_total{job="backend",status=~"5.."}[1m])) '
+            '(sum(rate(fuelops_http_requests_total{job="backend",status=~"5.."}[1m])) or vector(0)) '
             '/ clamp_min(sum(rate(fuelops_http_requests_total{job="backend"}[1m])), 1e-9)', "error rate")],
             12, 7, "percentunit"),
         panel("stat", "Service availability (up)", [target("up{job=~\"backend|intelligence\"}", "{{job}}")], 12, 7,

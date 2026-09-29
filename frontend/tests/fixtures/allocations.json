@@ -1,0 +1,23 @@
+[
+ {
+  "id": 1,
+  "idempotency_key": "fo-15-1701-1-0",
+  "source_depot_id": "depot-patiya",
+  "destination_station_id": "station-karnaphuli",
+  "route_id": "route-patiya-karnaphuli",
+  "fuel_type": "PETROL",
+  "quantity": 1000.0,
+  "created_tick": 1,
+  "departure_tick": null,
+  "expected_arrival_tick": null,
+  "actual_arrival_tick": null,
+  "status": "PENDING",
+  "failure_reason": null,
+  "plan": {
+   "plan_id": 1701,
+   "line_no": 1,
+   "policy": "planner",
+   "approved_by": "auto:assisted"
+  }
+ }
+]

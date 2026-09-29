@@ -164,9 +164,10 @@ async def test_read_endpoints(api):
     """Risks, alerts, incidents, supply, intelligence and timeline endpoints all answer."""
     client, _ = api
     for path in ("/api/risks", "/api/alerts?status=all", "/api/incidents", "/api/supply", "/api/intelligence",
-                 "/api/metrics/timeline", "/api/plans", "/api/plans/current", "/api/settings", "/api/chaos/status"):
+                 "/api/metrics/timeline", "/api/plans", "/api/plans/current", "/api/settings"):
         r = await client.get(path)
         assert r.status_code == 200, path
+    assert (await client.get("/api/chaos/status", headers=AUTH)).status_code == 200  # proxies /admin: token-gated
     supply = (await client.get("/api/supply")).json()
     assert supply["upcoming"] and "first_seen" in supply
     assert (await client.get("/api/alerts?status=bogus")).status_code == 422
@@ -196,7 +197,7 @@ async def test_chaos_proxy_events_faults_and_steps(api):
                               json={"type": "stale_data", "duration_seconds": 30})).status_code == 200
     assert (await client.post("/api/chaos/faults/clear", headers=AUTH)).json() == {"status": "cleared"}
     assert (await client.post("/api/chaos/step", headers=AUTH)).json()["tick"] == 5
-    status = (await client.get("/api/chaos/status")).json()
+    status = (await client.get("/api/chaos/status", headers=AUTH)).json()
     assert status["events"] and status["faults"]
 
 

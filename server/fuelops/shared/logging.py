@@ -14,7 +14,7 @@ import sys
 from datetime import UTC, datetime
 from typing import Any
 
-_context: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar("log_context", default={})
+_context: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar("log_context", default=None)
 _SERVICE = {"name": "fuelops"}
 
 
@@ -27,7 +27,7 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "event": record.getMessage(),
         }
-        payload.update(_context.get())
+        payload.update(_context.get() or {})
         payload.update(getattr(record, "fields", {}) or {})
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
@@ -46,7 +46,7 @@ def configure_logging(level: str = "INFO", service: str = "fuelops") -> None:
 
 
 def bind(**fields: Any) -> None:
-    _context.set({**_context.get(), **fields})
+    _context.set({**(_context.get() or {}), **fields})
 
 
 class StructLogger:

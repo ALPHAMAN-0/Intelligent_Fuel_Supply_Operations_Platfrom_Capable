@@ -1,0 +1,35 @@
+id: CR-05
+name: Combined crisis
+description: >
+  Route disruption, late resupply and a Dhaka demand spike overlap, while the simulator API itself misbehaves: a burst of
+  injected 503 errors and a stretch of stale data. The platform must keep deciding (retries, circuit breaker, cached
+  state), hold automatic approval while data is stale, and still protect the service level.
+mode: assisted
+policy: planner
+ticks: 60
+events:
+  - type: route_disruption
+    start_tick: 2
+    duration_ticks: 30
+    parameters: { route_ids: [route-gazipur-mirpur] }
+  - type: shipment_delay
+    start_tick: 3
+    duration_ticks: 1
+    parameters: { delay_ticks: 8 }
+  - type: demand_spike
+    start_tick: 6
+    duration_ticks: 30
+    parameters: { multiplier: 1.6, region_ids: [region-dhaka] }
+faults:
+  - type: error_rate            # 30% of /v1/* calls answer 503 FAULT_INJECTED
+    at_tick: 10
+    duration_seconds: 8
+    parameters: { rate: 0.3 }
+  - type: stale_data            # /v1/* GETs carry X-Simulator-Stale: true
+    at_tick: 24
+    duration_seconds: 6
+expect:
+  alerts_raised: [event, network]
+  incident_opened: true
+  auto_approval_blocked: true
+  min_final_service_level: 0.93

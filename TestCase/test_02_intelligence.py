@@ -15,7 +15,6 @@ from fuelops.shared.risk import score_risks, series_confidence
 from fuelops.shared.world import prior_forecast
 from tests.factories import make_world, synth_history
 
-
 pytestmark = pytest.mark.unit
 
 
@@ -170,7 +169,7 @@ def test_TC_I_011_snapshot_includes_safety_z_buffer() -> None:
     fuel = "PETROL"
     risk = risk_snapshot(w, st, fuel, fc, {}, horizon=24)
     assert risk.projected_unmet_liters >= 0
-    assert 0.0 <= risk.p_stockout_12h <= 1.0
+    assert 0.0 <= risk.p_stockout <= 1.0  # RiskSnapshot is per planning horizon; per-window values live on RiskScore
 
 
 # ------------------------------------------------------------------------ TC-I-012
@@ -374,8 +373,8 @@ def test_TC_I_024_terminal_cover_forces_end_inventory() -> None:
 
 # ------------------------------------------------------------------------ TC-I-025
 def test_TC_I_025_evaluate_improves_unmet() -> None:
-    from fuelops.shared.risk import evaluate
     from fuelops.shared.models import FixedLine
+    from fuelops.shared.risk import evaluate
     w = make_world()
     # Deplete Mirpur so unmet would happen on the horizon.
     for s in w.stations:
@@ -390,8 +389,8 @@ def test_TC_I_025_evaluate_improves_unmet() -> None:
 
 # ------------------------------------------------------------------------ TC-I-026
 def test_TC_I_026_evaluate_rejects_unknown_route() -> None:
-    from fuelops.shared.risk import evaluate
     from fuelops.shared.models import FixedLine
+    from fuelops.shared.risk import evaluate
     w = make_world()
     fc = prior_forecast(w, horizon=24)
     with pytest.raises(ValueError, match="unknown route"):
@@ -401,7 +400,8 @@ def test_TC_I_026_evaluate_rejects_unknown_route() -> None:
 # ------------------------------------------------------------------------ TC-I-027
 def test_TC_I_027_forecast_endpoint() -> None:
     from fastapi.testclient import TestClient
-    from fuelops.intelligence.main import create_app, Engine
+
+    from fuelops.intelligence.main import Engine, create_app
     w = make_world()
     history = synth_history(w, ticks=96, end_tick=96)
     app = create_app(engine=Engine(models_dir="/nonexistent", version="v1"))
@@ -420,7 +420,8 @@ def test_TC_I_027_forecast_endpoint() -> None:
 # ------------------------------------------------------------------------ TC-I-028
 def test_TC_I_028_cycle_endpoint() -> None:
     from fastapi.testclient import TestClient
-    from fuelops.intelligence.main import create_app, Engine
+
+    from fuelops.intelligence.main import Engine, create_app
     w = make_world()
     history = synth_history(w, ticks=96, end_tick=96)
     app = create_app(engine=Engine(models_dir="/nonexistent", version="v1"))
@@ -440,7 +441,8 @@ def test_TC_I_028_cycle_endpoint() -> None:
 # ------------------------------------------------------------------------ TC-I-029
 def test_TC_I_029_evaluate_endpoint_returns_422_on_unknown_route() -> None:
     from fastapi.testclient import TestClient
-    from fuelops.intelligence.main import create_app, Engine
+
+    from fuelops.intelligence.main import Engine, create_app
     w = make_world()
     app = create_app(engine=Engine(models_dir="/nonexistent", version="v1"))
     with TestClient(app) as client:
@@ -455,7 +457,8 @@ def test_TC_I_029_evaluate_endpoint_returns_422_on_unknown_route() -> None:
 # ------------------------------------------------------------------------ TC-I-030
 def test_TC_I_030_health_and_model_info() -> None:
     from fastapi.testclient import TestClient
-    from fuelops.intelligence.main import create_app, Engine
+
+    from fuelops.intelligence.main import Engine, create_app
     app = create_app(engine=Engine(models_dir="/nonexistent", version="v1"))
     with TestClient(app) as client:
         h = client.get("/health").json()

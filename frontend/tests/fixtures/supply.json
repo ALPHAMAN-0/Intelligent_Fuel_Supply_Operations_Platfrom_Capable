@@ -1,0 +1,359 @@
+{
+ "upcoming": [
+  {
+   "id": "supply-001",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "DIESEL",
+   "quantity": 18000.0,
+   "expected_quantity": 18000.0,
+   "planned_tick": 12,
+   "eta_tick": 12,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-003",
+   "depot_id": "depot-patiya",
+   "fuel_type": "DIESEL",
+   "quantity": 16000.0,
+   "expected_quantity": 16000.0,
+   "planned_tick": 14,
+   "eta_tick": 14,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-002",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "PETROL",
+   "quantity": 14000.0,
+   "expected_quantity": 14000.0,
+   "planned_tick": 16,
+   "eta_tick": 16,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-004",
+   "depot_id": "depot-patiya",
+   "fuel_type": "OCTANE",
+   "quantity": 9000.0,
+   "expected_quantity": 9000.0,
+   "planned_tick": 20,
+   "eta_tick": 20,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-101",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "DIESEL",
+   "quantity": 12000.0,
+   "expected_quantity": 12000.0,
+   "planned_tick": 64,
+   "eta_tick": 64,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-102",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "PETROL",
+   "quantity": 10000.0,
+   "expected_quantity": 10000.0,
+   "planned_tick": 68,
+   "eta_tick": 68,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-103",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "OCTANE",
+   "quantity": 7000.0,
+   "expected_quantity": 7000.0,
+   "planned_tick": 72,
+   "eta_tick": 72,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-104",
+   "depot_id": "depot-patiya",
+   "fuel_type": "DIESEL",
+   "quantity": 10000.0,
+   "expected_quantity": 10000.0,
+   "planned_tick": 76,
+   "eta_tick": 76,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-105",
+   "depot_id": "depot-patiya",
+   "fuel_type": "PETROL",
+   "quantity": 8000.0,
+   "expected_quantity": 8000.0,
+   "planned_tick": 80,
+   "eta_tick": 80,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-106",
+   "depot_id": "depot-patiya",
+   "fuel_type": "OCTANE",
+   "quantity": 6000.0,
+   "expected_quantity": 6000.0,
+   "planned_tick": 84,
+   "eta_tick": 84,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-201",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "DIESEL",
+   "quantity": 12000.0,
+   "expected_quantity": 12000.0,
+   "planned_tick": 128,
+   "eta_tick": 128,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-202",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "PETROL",
+   "quantity": 10000.0,
+   "expected_quantity": 10000.0,
+   "planned_tick": 132,
+   "eta_tick": 132,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-203",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "OCTANE",
+   "quantity": 7000.0,
+   "expected_quantity": 7000.0,
+   "planned_tick": 136,
+   "eta_tick": 136,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-204",
+   "depot_id": "depot-patiya",
+   "fuel_type": "DIESEL",
+   "quantity": 10000.0,
+   "expected_quantity": 10000.0,
+   "planned_tick": 140,
+   "eta_tick": 140,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-205",
+   "depot_id": "depot-patiya",
+   "fuel_type": "PETROL",
+   "quantity": 8000.0,
+   "expected_quantity": 8000.0,
+   "planned_tick": 144,
+   "eta_tick": 144,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-206",
+   "depot_id": "depot-patiya",
+   "fuel_type": "OCTANE",
+   "quantity": 6000.0,
+   "expected_quantity": 6000.0,
+   "planned_tick": 148,
+   "eta_tick": 148,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-301",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "DIESEL",
+   "quantity": 12000.0,
+   "expected_quantity": 12000.0,
+   "planned_tick": 192,
+   "eta_tick": 192,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-302",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "PETROL",
+   "quantity": 10000.0,
+   "expected_quantity": 10000.0,
+   "planned_tick": 196,
+   "eta_tick": 196,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-303",
+   "depot_id": "depot-gazipur",
+   "fuel_type": "OCTANE",
+   "quantity": 7000.0,
+   "expected_quantity": 7000.0,
+   "planned_tick": 200,
+   "eta_tick": 200,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-304",
+   "depot_id": "depot-patiya",
+   "fuel_type": "DIESEL",
+   "quantity": 10000.0,
+   "expected_quantity": 10000.0,
+   "planned_tick": 204,
+   "eta_tick": 204,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-305",
+   "depot_id": "depot-patiya",
+   "fuel_type": "PETROL",
+   "quantity": 8000.0,
+   "expected_quantity": 8000.0,
+   "planned_tick": 208,
+   "eta_tick": 208,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  },
+  {
+   "id": "supply-306",
+   "depot_id": "depot-patiya",
+   "fuel_type": "OCTANE",
+   "quantity": 6000.0,
+   "expected_quantity": 6000.0,
+   "planned_tick": 212,
+   "eta_tick": 212,
+   "status": "SCHEDULED",
+   "delayed": false,
+   "shortfall": false
+  }
+ ],
+ "arrived": [],
+ "first_seen": {
+  "supply-001": {
+   "planned_tick": 12,
+   "quantity": 18000.0
+  },
+  "supply-003": {
+   "planned_tick": 14,
+   "quantity": 16000.0
+  },
+  "supply-002": {
+   "planned_tick": 16,
+   "quantity": 14000.0
+  },
+  "supply-004": {
+   "planned_tick": 20,
+   "quantity": 9000.0
+  },
+  "supply-101": {
+   "planned_tick": 64,
+   "quantity": 12000.0
+  },
+  "supply-102": {
+   "planned_tick": 68,
+   "quantity": 10000.0
+  },
+  "supply-103": {
+   "planned_tick": 72,
+   "quantity": 7000.0
+  },
+  "supply-104": {
+   "planned_tick": 76,
+   "quantity": 10000.0
+  },
+  "supply-105": {
+   "planned_tick": 80,
+   "quantity": 8000.0
+  },
+  "supply-106": {
+   "planned_tick": 84,
+   "quantity": 6000.0
+  },
+  "supply-201": {
+   "planned_tick": 128,
+   "quantity": 12000.0
+  },
+  "supply-202": {
+   "planned_tick": 132,
+   "quantity": 10000.0
+  },
+  "supply-203": {
+   "planned_tick": 136,
+   "quantity": 7000.0
+  },
+  "supply-204": {
+   "planned_tick": 140,
+   "quantity": 10000.0
+  },
+  "supply-205": {
+   "planned_tick": 144,
+   "quantity": 8000.0
+  },
+  "supply-206": {
+   "planned_tick": 148,
+   "quantity": 6000.0
+  },
+  "supply-301": {
+   "planned_tick": 192,
+   "quantity": 12000.0
+  },
+  "supply-302": {
+   "planned_tick": 196,
+   "quantity": 10000.0
+  },
+  "supply-303": {
+   "planned_tick": 200,
+   "quantity": 7000.0
+  },
+  "supply-304": {
+   "planned_tick": 204,
+   "quantity": 10000.0
+  },
+  "supply-305": {
+   "planned_tick": 208,
+   "quantity": 8000.0
+  },
+  "supply-306": {
+   "planned_tick": 212,
+   "quantity": 6000.0
+  }
+ }
+}

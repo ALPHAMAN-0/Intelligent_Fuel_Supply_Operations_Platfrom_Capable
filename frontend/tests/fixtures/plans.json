@@ -1,0 +1,202 @@
+[
+ {
+  "id": 1702,
+  "run_id": 16,
+  "tick": 1,
+  "policy": "planner",
+  "mode": "assisted",
+  "status": "EMPTY",
+  "created_at": "2026-09-29T07:17:55.024378Z",
+  "expires_tick": 3,
+  "stale_inputs": false,
+  "fallback_reason": null,
+  "result": {
+   "policy": "planner",
+   "tick": 1,
+   "horizon_ticks": 24,
+   "lines": [],
+   "objective": 0.0,
+   "projected_unmet_before": 0.0,
+   "projected_unmet_after": 0.0,
+   "binding_constraints": [],
+   "rationing": [],
+   "notes": [
+    "No shipment needed this tick: projected stock covers planning demand"
+   ],
+   "solver_status": "OPTIMAL",
+   "solve_ms": 38.16
+  },
+  "lines": [],
+  "explanation": "Tick 1: no shipment needed this tick (planner policy).",
+  "explanation_source": "template"
+ },
+ {
+  "id": 1701,
+  "run_id": 15,
+  "tick": 179,
+  "policy": "planner",
+  "mode": "assisted",
+  "status": "EXECUTED",
+  "created_at": "2026-09-29T07:17:54.698737Z",
+  "expires_tick": 181,
+  "stale_inputs": false,
+  "fallback_reason": null,
+  "result": {
+   "policy": "planner",
+   "tick": 179,
+   "horizon_ticks": 24,
+   "lines": [
+    {
+     "line_no": 1,
+     "route_id": "route-patiya-karnaphuli",
+     "depot_id": "depot-patiya",
+     "station_id": "station-karnaphuli",
+     "fuel_type": "PETROL",
+     "quantity": 1000.0,
+     "parts": [
+      1000.0
+     ],
+     "arrival_tick": 182,
+     "reason": "Ship 1000 L PETROL depot-patiya -> station-karnaphuli, arriving tick 182: keeps cover: stock at the end of the 6 h horizon rises from 591 L to 1591 L",
+     "signals": [
+      "stockout in 7.8 h without action",
+      "P(stockout within 6 h) 0%",
+      "forecast demand 2219 L over 6 h"
+     ],
+     "binding": [],
+     "risk_before": {
+      "p_stockout": 0.0,
+      "horizon_hours": 6.0,
+      "hours_to_stockout": 7.75,
+      "projected_unmet_liters": 0.0,
+      "end_inventory_liters": 590.8
+     },
+     "risk_after": {
+      "p_stockout": 0.0,
+      "horizon_hours": 6.0,
+      "hours_to_stockout": 9.75,
+      "projected_unmet_liters": 0.0,
+      "end_inventory_liters": 1590.8
+     },
+     "alternatives": [
+      {
+       "description": "Skip this shipment",
+       "route_id": null,
+       "delta_unmet_liters": 0.0
+      },
+      {
+       "description": "Ship 1000 L via route-gazipur-karnaphuli (arrives tick 184)",
+       "route_id": "route-gazipur-karnaphuli",
+       "delta_unmet_liters": 0.0
+      }
+     ],
+     "confidence": 0.95
+    }
+   ],
+   "objective": 0.789,
+   "projected_unmet_before": 0.0,
+   "projected_unmet_after": 0.0,
+   "binding_constraints": [],
+   "rationing": [],
+   "notes": [],
+   "solver_status": "OPTIMAL",
+   "solve_ms": 47.98
+  },
+  "lines": [
+   {
+    "line_no": 1,
+    "route_id": "route-patiya-karnaphuli",
+    "depot_id": "depot-patiya",
+    "station_id": "station-karnaphuli",
+    "fuel_type": "PETROL",
+    "quantity": 1000.0,
+    "parts": [
+     1000.0
+    ],
+    "arrival_tick": 182,
+    "reason": "Ship 1000 L PETROL depot-patiya -> station-karnaphuli, arriving tick 182: keeps cover: stock at the end of the 6 h horizon rises from 591 L to 1591 L",
+    "signals": [
+     "stockout in 7.8 h without action",
+     "P(stockout within 6 h) 0%",
+     "forecast demand 2219 L over 6 h"
+    ],
+    "binding": [],
+    "risk_before": {
+     "p_stockout": 0.0,
+     "horizon_hours": 6.0,
+     "hours_to_stockout": 7.75,
+     "projected_unmet_liters": 0.0,
+     "end_inventory_liters": 590.8
+    },
+    "risk_after": {
+     "p_stockout": 0.0,
+     "horizon_hours": 6.0,
+     "hours_to_stockout": 9.75,
+     "projected_unmet_liters": 0.0,
+     "end_inventory_liters": 1590.8
+    },
+    "alternatives": [
+     {
+      "description": "Skip this shipment",
+      "route_id": null,
+      "delta_unmet_liters": 0.0
+     },
+     {
+      "description": "Ship 1000 L via route-gazipur-karnaphuli (arrives tick 184)",
+      "route_id": "route-gazipur-karnaphuli",
+      "delta_unmet_liters": 0.0
+     }
+    ],
+    "confidence": 0.95,
+    "status": "PENDING",
+    "submissions": [
+     {
+      "part": 0,
+      "quantity": 1000.0,
+      "idempotency_key": "fo-15-1701-1-0",
+      "allocation_id": 1,
+      "status": "PENDING",
+      "http_status": 201,
+      "error": null
+     }
+    ],
+    "approved_by": "auto:assisted",
+    "decision_reason": null,
+    "needs_review_reason": null
+   }
+  ],
+  "explanation": "Tick 179: 1 shipment(s), 1,000 L in total (planner policy). Projected unmet demand over the next 24 ticks falls from 0 L to 0 L (0 L avoided).\n- station-karnaphuli PETROL: stockout in 7.8 h without action; ship 1,000 L via route-patiya-karnaphuli (arrives tick 182); P(stockout within 6 h) 0% -> 0%; stock at horizon end 591 -> 1,591 L; confidence 95%.",
+  "explanation_source": "template"
+ },
+ {
+  "id": 1700,
+  "run_id": 15,
+  "tick": 178,
+  "policy": "planner",
+  "mode": "assisted",
+  "status": "EMPTY",
+  "created_at": "2026-09-29T07:17:54.403844Z",
+  "expires_tick": 180,
+  "stale_inputs": false,
+  "fallback_reason": null,
+  "result": {
+   "policy": "planner",
+   "tick": 178,
+   "horizon_ticks": 24,
+   "lines": [],
+   "objective": 0.664,
+   "projected_unmet_before": 0.0,
+   "projected_unmet_after": 0.0,
+   "binding_constraints": [],
+   "rationing": [],
+   "notes": [
+    "No shipment needed this tick: projected stock covers planning demand"
+   ],
+   "solver_status": "OPTIMAL",
+   "solve_ms": 54.1
+  },
+  "lines": [],
+  "explanation": "Tick 178: no shipment needed this tick (planner policy).",
+  "explanation_source": "template"
+ }
+]

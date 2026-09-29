@@ -26,9 +26,7 @@ from fuelops.backend.integration.sim_errors import (
 from fuelops.backend.integration.sse_listener import SSEListener, parse_sse_lines
 from fuelops.shared.sim_models import (
     EventInjection,
-    FaultInjection,
 )
-
 
 pytestmark = pytest.mark.unit
 
@@ -593,8 +591,9 @@ async def test_TC_S_029_aclose_closes_transport() -> None:
 # ------------------------------------------------------------------------ TC-S-030
 def test_TC_S_030_metrics_middleware_skips_internal_routes() -> None:
     from fastapi import FastAPI
-    from fuelops.shared.metrics import MetricsMiddleware
     from starlette.testclient import TestClient
+
+    from fuelops.shared.metrics import MetricsMiddleware
 
     app = FastAPI()
     app.add_middleware(MetricsMiddleware, service="t")
@@ -628,6 +627,7 @@ def test_TC_S_030_metrics_middleware_skips_internal_routes() -> None:
 # ------------------------------------------------------------------------ TC-S-031
 def test_TC_S_031_latency_window_thread_safe() -> None:
     import threading
+
     from fuelops.shared.metrics import LatencyWindow
 
     # The default deque maxlen is 2000, so the snapshot will be capped at the most recent items.
@@ -651,7 +651,7 @@ def test_TC_S_031_latency_window_thread_safe() -> None:
 
     # And the default-size window caps at 2000 items.
     small = LatencyWindow()
-    for i in range(5000):
+    for _ in range(5000):
         small.add(0.001, False)
     assert small.snapshot()["count"] == 2000
 

@@ -1,0 +1,16 @@
+id: CR-01
+name: Shipment delay
+description: >
+  Every scheduled depot resupply arrives 12 ticks (3 h) later than planned. The platform must warn about the late
+  supply before it bites, show the shortage impact, keep stations supplied from remaining depot stock, and recover.
+mode: auto
+policy: planner
+ticks: 48
+events:
+  - type: shipment_delay
+    start_tick: 1
+    duration_ticks: 1          # one-shot: planned_tick += delay_ticks on matching SCHEDULED arrivals
+    parameters: { delay_ticks: 12 }
+expect:
+  alerts_raised: [event, supply]
+  min_final_service_level: 0.97

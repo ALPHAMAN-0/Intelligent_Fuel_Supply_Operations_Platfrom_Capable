@@ -7,9 +7,9 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 
-from fuelops.shared.stats import history_stats
 from fuelops.shared.metrics import FORECAST_MAE, FORECAST_MAPE
 from fuelops.shared.models import CycleResponse, DemandPoint, HourStats, SeriesForecast, WorldState
+from fuelops.shared.stats import history_stats
 
 HORIZONS = (1, 4, 16)
 

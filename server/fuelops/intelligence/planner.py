@@ -14,7 +14,7 @@ from collections import defaultdict
 import pulp
 
 from fuelops.shared import spec
-from fuelops.shared.models import Alternative, PlannerParams, PlanLine, PlanResult, WorldState
+from fuelops.shared.models import Alternative, PlanLine, PlannerParams, PlanResult, RiskSnapshot, WorldState
 from fuelops.shared.risk import risk_snapshot, series_unmet
 from fuelops.shared.world import (
     WorldIndex,

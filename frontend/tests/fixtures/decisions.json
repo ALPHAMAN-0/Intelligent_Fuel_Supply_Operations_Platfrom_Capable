@@ -1,0 +1,89 @@
+[
+ {
+  "id": 1888,
+  "run_id": 15,
+  "plan_id": 1701,
+  "line_no": 1,
+  "actor": "system",
+  "action": "submit",
+  "reason": null,
+  "tick": 179,
+  "at": "2026-09-29T07:17:54.828687Z",
+  "detail": {
+   "status": "PENDING",
+   "keys": [
+    "fo-15-1701-1-0"
+   ]
+  }
+ },
+ {
+  "id": 1887,
+  "run_id": 15,
+  "plan_id": 1701,
+  "line_no": 1,
+  "actor": "auto:assisted",
+  "action": "auto_approve",
+  "reason": "passed the mode gate",
+  "tick": 179,
+  "at": "2026-09-29T07:17:54.698855Z",
+  "detail": {}
+ },
+ {
+  "id": 1886,
+  "run_id": 15,
+  "plan_id": 1676,
+  "line_no": 1,
+  "actor": "system",
+  "action": "submit",
+  "reason": null,
+  "tick": 154,
+  "at": "2026-09-29T07:17:46.799578Z",
+  "detail": {
+   "status": "PENDING",
+   "keys": [
+    "fo-15-1676-1-0"
+   ]
+  }
+ },
+ {
+  "id": 1885,
+  "run_id": 15,
+  "plan_id": 1676,
+  "line_no": 1,
+  "actor": "auto:assisted",
+  "action": "auto_approve",
+  "reason": "passed the mode gate",
+  "tick": 154,
+  "at": "2026-09-29T07:17:46.682476Z",
+  "detail": {}
+ },
+ {
+  "id": 1884,
+  "run_id": 15,
+  "plan_id": 1673,
+  "line_no": 2,
+  "actor": "system",
+  "action": "submit",
+  "reason": null,
+  "tick": 151,
+  "at": "2026-09-29T07:17:46.109025Z",
+  "detail": {
+   "status": "PENDING",
+   "keys": [
+    "fo-15-1673-2-0"
+   ]
+  }
+ },
+ {
+  "id": 1883,
+  "run_id": 15,
+  "plan_id": 1673,
+  "line_no": 2,
+  "actor": "auto:assisted",
+  "action": "auto_approve",
+  "reason": "passed the mode gate",
+  "tick": 151,
+  "at": "2026-09-29T07:17:46.070650Z",
+  "detail": {}
+ }
+]

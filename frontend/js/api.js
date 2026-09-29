@@ -70,7 +70,8 @@ export const api = {
   decisions: (limit = 100) => get(`/api/decisions?limit=${limit}`),
   settings: () => get('/api/settings'),
   intelligence: () => get('/api/intelligence'),
-  chaosStatus: () => get('/api/chaos/status'),
+  // Token-gated: it proxies the simulator's /admin, so only signed-in operators ask for it.
+  chaosStatus: () => (canAct() ? mutate('/api/chaos/status', { method: 'GET' }) : Promise.resolve(null)),
   timeline: (limit = 200) => get(`/api/metrics/timeline?limit=${limit}`),
   evaluate: (lines) => mutate('/api/evaluate', { body: { lines } }),
   compute: () => mutate('/api/plans/compute'),

@@ -46,6 +46,7 @@ class Settings(BaseModel):
     auto_approve_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
     auto_approve_max_liters: float = Field(default=7000.0, ge=0.0)
     history_window_ticks: int = Field(default=672, ge=96)
+    evaluate_max_concurrency: int = Field(default=4, ge=1)
 
     # Explanations (Claude API, template fallback)
     anthropic_api_key: SecretStr | None = None

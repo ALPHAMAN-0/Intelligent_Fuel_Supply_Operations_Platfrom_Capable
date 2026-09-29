@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
@@ -44,6 +44,17 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_methods=["*"],
                        allow_headers=["Authorization", "Content-Type"])
     app.include_router(router)
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next) -> Response:
+        # Script/style policy lives in each console page's <meta> CSP; frame-ancestors only works as a header and
+        # stops the approve buttons being framed (clickjacking). Kept minimal so /docs (Swagger CDN) still loads.
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'")
+        return response
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics() -> Response:

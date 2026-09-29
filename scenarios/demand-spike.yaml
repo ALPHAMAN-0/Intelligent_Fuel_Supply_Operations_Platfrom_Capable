@@ -1,0 +1,21 @@
+id: CR-02
+name: Demand spike
+description: >
+  Demand across the Dhaka region jumps to 1.8x for 8 hours, starting 1 hour after the reset. The platform must flag the
+  scheduled event, raise the stockout risk for Dhaka stations and ship ahead of the stockouts. The spike is announced by
+  a simulator event and the forecaster reads each station's live demand multiplier, so it is explained demand: the
+  residual-based demand_anomaly detector (unexplained demand, tests/test_backend_units.py) correctly stays quiet.
+mode: auto
+policy: planner
+ticks: 48
+events:
+  - type: demand_spike
+    start_tick: 4
+    duration_ticks: 32
+    parameters: { multiplier: 1.8, region_ids: [region-dhaka] }
+expect:
+  alerts_raised: [event]
+  incident_opened: true
+  risk_rises_above: 0.2
+  plan_lines_to: [station-mirpur, station-tongi]
+  min_final_service_level: 0.95

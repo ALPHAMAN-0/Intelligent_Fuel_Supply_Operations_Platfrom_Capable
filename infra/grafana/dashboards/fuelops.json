@@ -337,7 +337,7 @@
       "type": "prometheus",
       "uid": "prometheus"
      },
-     "expr": "sum(rate(fuelops_http_requests_total{job=\"backend\",status=~\"5..\"}[1m])) / clamp_min(sum(rate(fuelops_http_requests_total{job=\"backend\"}[1m])), 1e-9)",
+     "expr": "(sum(rate(fuelops_http_requests_total{job=\"backend\",status=~\"5..\"}[1m])) or vector(0)) / clamp_min(sum(rate(fuelops_http_requests_total{job=\"backend\"}[1m])), 1e-9)",
      "legendFormat": "error rate",
      "refId": "A"
     }

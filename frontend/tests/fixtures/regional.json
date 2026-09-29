@@ -1,0 +1,27 @@
+{
+ "window_ticks": 4,
+ "observed": {
+  "region-dhaka": {
+   "DIESEL": 129.116,
+   "PETROL": 91.973,
+   "OCTANE": 47.681
+  },
+  "region-chattogram": {
+   "DIESEL": 136.531,
+   "PETROL": 154.32399999999998,
+   "OCTANE": 82.9
+  }
+ },
+ "forecast_next": {
+  "region-dhaka": {
+   "DIESEL": 511.046,
+   "PETROL": 386.66999999999996,
+   "OCTANE": 202.176
+  },
+  "region-chattogram": {
+   "DIESEL": 561.774,
+   "PETROL": 597.8139999999999,
+   "OCTANE": 317.544
+  }
+ }
+}

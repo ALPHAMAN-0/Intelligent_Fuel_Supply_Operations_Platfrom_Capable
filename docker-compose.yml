@@ -100,6 +100,20 @@ services:
       - grafana-data:/var/lib/grafana
     depends_on: [prometheus]
 
+  # Scenario replay and policy benchmark run inside the project image (no host Python needed). They RESET the simulator:
+  #   docker compose run --rm tools scripts/run_scenario.py scenarios/demand-spike.yaml
+  #   docker compose run --rm tools scripts/benchmark.py
+  tools:
+    <<: *fuelops-image
+    profiles: [tools]
+    restart: "no"
+    working_dir: /repo
+    entrypoint: ["python"]
+    volumes:
+      - ./:/repo
+    depends_on:
+      backend: { condition: service_healthy }
+
   locust:
     image: locustio/locust:2.32.4
     profiles: [loadtest]

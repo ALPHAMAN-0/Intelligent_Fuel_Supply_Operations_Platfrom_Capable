@@ -15,8 +15,8 @@ from fuelops.shared import spec
 from fuelops.shared.models import (
     CycleResponse,
     ModelInfo,
-    PlannerParams,
     PlanLine,
+    PlannerParams,
     PlanResult,
     SeriesForecast,
     WorldState,

@@ -49,6 +49,7 @@ ALERTS_OPEN = Gauge("fuelops_alerts_open", "Open alerts", ["severity"])
 LLM_REQUESTS = Counter("fuelops_llm_requests_total", "Explanation requests", ["outcome"])
 LLM_LATENCY = Histogram("fuelops_llm_latency_seconds", "LLM latency", buckets=(0.5, 1, 2, 4, 8, 16, 30))
 DB_UP = Gauge("fuelops_db_up", "1 when the last database operation succeeded")
+AUTH_REJECTED = Counter("fuelops_auth_rejected_total", "Operator requests rejected by the token check", ["reason"])
 
 # Business (copied from /v1/metrics and our risk scores)
 SERVICE_LEVEL = Gauge("fuelops_service_level", "Simulator service level (served / (served + unmet))")
