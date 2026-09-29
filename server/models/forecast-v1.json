@@ -1,0 +1,11 @@
+{
+  "version": "v1",
+  "kind": "structural",
+  "prior_strength": 4.0,
+  "scale_strength": 8.0,
+  "noise_strength": 20.0,
+  "rates": null,
+  "trained_on": {
+    "note": "Spec prior only (integration guide §8.5-8.6); levels are learned online from mirrored history. Train a learned prior with scripts/train_forecast.py."
+  }
+}

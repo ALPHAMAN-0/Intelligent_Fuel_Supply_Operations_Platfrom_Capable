@@ -1,0 +1,14 @@
+.git
+.github
+.claude
+ProblemSet
+docs
+qa/results
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+server/data
+**/*.db
+.env
