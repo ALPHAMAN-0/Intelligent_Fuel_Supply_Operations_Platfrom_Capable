@@ -40,6 +40,7 @@ class CircuitBreaker:
         self._failures = 0
         self._opened_at = 0.0
         self._probe_in_flight = False
+        self._probe_started_at = 0.0
 
     @property
     def state(self) -> BreakerState:
@@ -65,10 +66,15 @@ class CircuitBreaker:
         state = self.state
         if state is BreakerState.CLOSED:
             return True
-        if state is BreakerState.HALF_OPEN and not self._probe_in_flight:
-            self._probe_in_flight = True
-            return True
-        return False
+        if state is not BreakerState.HALF_OPEN:
+            return False
+        # One probe at a time; a probe that never reported back (cancelled task, lost bookkeeping) is abandoned after a
+        # full cooldown so the breaker can never wedge in HALF_OPEN.
+        if self._probe_in_flight and self._clock() - self._probe_started_at < self.reset_timeout_s:
+            return False
+        self._probe_in_flight = True
+        self._probe_started_at = self._clock()
+        return True
 
     def record_success(self) -> None:
         self._failures = 0

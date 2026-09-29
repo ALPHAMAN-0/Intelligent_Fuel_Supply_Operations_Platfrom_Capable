@@ -56,6 +56,30 @@ def run_policy(client: StackClient, events: list[dict], policy: str, ticks: int)
     }
 
 
+def summary(results: dict[str, list[dict]]) -> list[str]:
+    """One sentence per policy with its range across scenarios, computed from the results."""
+    by_policy: dict[str, list[dict]] = {}
+    for rows in results.values():
+        for r in rows:
+            by_policy.setdefault(r["policy"], []).append(r)
+    if not by_policy:
+        return []
+
+    def span(values: list[float], fmt: str) -> str:
+        lo, hi = min(values), max(values)
+        return format(lo, fmt) if lo == hi else f"{format(lo, fmt)}-{format(hi, fmt)}"
+
+    out = ["## Summary", ""]
+    for policy in POLICIES:
+        rows = by_policy.get(policy)
+        if rows:
+            out.append(f"- **{policy}**: service level {span([r['service_level'] for r in rows], '.2%')}, "
+                       f"{span([r['stockout_hours'] for r in rows], '.1f')} stockout hours, "
+                       f"{span([r['unmet_demand_liters'] for r in rows], ',')} L unmet "
+                       f"across {len(rows)} scenario(s).")
+    return out + [""]
+
+
 def to_markdown(results: dict[str, list[dict]], ticks: int) -> str:
     lines = ["# Policy benchmark", "",
              f"*SIMULATED DATA.* Deterministic replays of the organizer's simulator (baseline scenario, seed 12345): "
@@ -64,6 +88,7 @@ def to_markdown(results: dict[str, list[dict]], ticks: int) -> str:
              "scripts/benchmark.py`.", "",
              "*Stockout hours* = sum over the 12 station/fuel series of hours spent empty. *Liters shipped* counts "
              "allocations that left the depot (IN_TRANSIT or ARRIVED).", ""]
+    lines += summary(results)
     for scenario, rows in results.items():
         base = next((r for r in rows if r["policy"] == "no-action"), None)
         lines += [f"## {scenario}", "", "| Policy | Service level | Unmet demand (L) | Stockout hours | Allocations | "
@@ -72,7 +97,7 @@ def to_markdown(results: dict[str, list[dict]], ticks: int) -> str:
             delta = ""
             if base and r is not base and base["unmet_demand_liters"]:
                 cut = 1 - r["unmet_demand_liters"] / base["unmet_demand_liters"]
-                delta = f" ({cut:+.0%} vs no-action)"
+                delta = f" ({cut:.0%} less than no-action)" if cut >= 0 else f" ({-cut:.0%} more than no-action)"
             lines.append(f"| {r['policy']} | {r['service_level']:.2%} | {r['unmet_demand_liters']:,}{delta} | "
                          f"{r['stockout_hours']} | {r['allocations']} | {r['liters_shipped']:,} | "
                          f"{r['allocation_failures']} |")
@@ -89,7 +114,12 @@ def main() -> int:
     parser.add_argument("--sim", default="http://simulator:8000")
     parser.add_argument("--out", type=Path, default=ROOT / "docs" / "benchmark.md")
     parser.add_argument("--resume", action="store_true", help="keep finished runs from a previous (interrupted) run")
+    parser.add_argument("--render-only", action="store_true", help="rewrite the report from the saved JSON; no runs")
     args = parser.parse_args()
+    if args.render_only:
+        save(args.out, load_previous(args.out, args.ticks), args.ticks)
+        print(f"wrote {args.out}")
+        return 0
 
     client = StackClient(args.backend, args.sim, operator_token())
     previous = client.get("/api/settings")

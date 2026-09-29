@@ -116,6 +116,7 @@ class SimClient:
         attempts = retries if retries is not None else self.retries
         err: SimError | None = None
         for attempt in range(1, attempts + 1):
+            probing = breaker is not None and breaker.state is BreakerState.HALF_OPEN
             if breaker is not None and not breaker.allow():
                 SIM_REQUESTS.labels(endpoint, "breaker_open").inc()
                 raise SimError(ErrorKind.BREAKER_OPEN, None, None, f"circuit breaker {breaker.name} open", endpoint)
@@ -150,6 +151,11 @@ class SimClient:
             if not err.retryable:
                 if breaker is not None:
                     breaker.record_success()  # the API answered; a business-rule rejection is not an outage
+                raise err
+            if probing:
+                # A failed HALF_OPEN probe re-opens the breaker now. Retrying would only be refused by allow() and
+                # used to leave the probe "in flight" forever, so the client never recovered after an outage.
+                breaker.record_failure()
                 raise err
             if attempt < attempts:
                 delay = random.uniform(0, min(self._backoff_cap, self._backoff_base * 2 ** (attempt - 1)))

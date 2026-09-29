@@ -10,6 +10,9 @@ import pytest
 from prometheus_client import REGISTRY
 
 from fuelops.backend.decision.orchestrator import REVIEWABLE, DecisionError
+from fuelops.backend.integration.breaker import BreakerState, CircuitBreaker
+from fuelops.backend.integration.sim_client import SimClient
+from fuelops.backend.integration.sim_errors import SimError
 from fuelops.backend.main import create_app
 from tests.stack import TOKEN
 
@@ -157,6 +160,58 @@ async def test_rejected_operator_requests_are_counted(stack, headers, reason):
         r = await client.get("/api/auth/verify", headers=headers)
     assert r.status_code == 401
     assert rejected() == before + 1
+
+
+# ------------------------------------------------------------------ circuit breaker recovery (found by the live drill)
+
+INSTANCE = {"id": 1, "scenario_id": "baseline", "scenario_version": "1.0", "seed": 12345,
+            "sim_time": "2026-01-01T00:15:00", "tick": 1, "tick_minutes": 15, "status": "PAUSED"}
+FAULT = {"error": {"code": "FAULT_INJECTED", "message": "injected unavailable"}}
+
+
+async def _no_sleep(_s: float) -> None:
+    return None
+
+
+async def test_client_recovers_after_a_failed_half_open_probe_once_the_simulator_is_back():
+    """Live drill: a 503 fault ended while the read breaker was HALF_OPEN and the backend never synced again."""
+    sim = {"down": True}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json=FAULT) if sim["down"] else httpx.Response(200, json=INSTANCE)
+
+    client = SimClient("http://sim", transport=httpx.MockTransport(handler), sleep=_no_sleep, retries=3,
+                       breaker_failure_threshold=1, breaker_reset_timeout_s=0.0)
+    with pytest.raises(SimError):
+        await client.get_instance()          # retries exhausted -> OPEN
+    with pytest.raises(SimError):
+        await client.get_instance()          # HALF_OPEN probe fails while the fault is still active
+    sim["down"] = False
+
+    instance = await client.get_instance()   # the simulator is back: this must reach it
+
+    assert instance.tick == 1
+    assert client.read_breaker.state is BreakerState.CLOSED
+    await client.aclose()
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.t = 0.0
+
+    def __call__(self) -> float:
+        return self.t
+
+
+def test_a_probe_that_never_reports_back_does_not_wedge_the_breaker():
+    clock = _Clock()
+    breaker = CircuitBreaker("t", failure_threshold=1, reset_timeout_s=10, clock=clock)
+    breaker.record_failure()
+    clock.t = 11
+    assert breaker.allow()                   # the one HALF_OPEN probe...
+    assert not breaker.allow()               # ...is exclusive while it is fresh
+    clock.t = 22                             # ...but a probe lost for a whole cooldown is abandoned
+    assert breaker.allow()
 
 
 async def test_concurrent_approvals_of_the_same_plan_submit_each_line_once(stack_factory):

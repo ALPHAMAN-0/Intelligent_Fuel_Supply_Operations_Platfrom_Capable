@@ -47,6 +47,63 @@
     "liters_shipped": 1200,
     "stockout_hours": 602.5,
     "wall_seconds": 63.8
+   },
+   {
+    "policy": "heuristic",
+    "service_level": 0.9668,
+    "unmet_demand_liters": 9653,
+    "served_demand_liters": 280944,
+    "allocation_failures": 0,
+    "allocations": 177,
+    "liters_shipped": 204800,
+    "stockout_hours": 80.0,
+    "wall_seconds": 123.1
+   },
+   {
+    "policy": "planner",
+    "service_level": 1.0,
+    "unmet_demand_liters": 0,
+    "served_demand_liters": 290598,
+    "allocation_failures": 0,
+    "allocations": 176,
+    "liters_shipped": 231200,
+    "stockout_hours": 0.0,
+    "wall_seconds": 78.3
+   }
+  ],
+  "combined-crisis": [
+   {
+    "policy": "no-action",
+    "service_level": 0.2988,
+    "unmet_demand_liters": 201595,
+    "served_demand_liters": 85900,
+    "allocation_failures": 0,
+    "allocations": 0,
+    "liters_shipped": 0,
+    "stockout_hours": 600.0,
+    "wall_seconds": 49.7
+   },
+   {
+    "policy": "heuristic",
+    "service_level": 0.9679,
+    "unmet_demand_liters": 9227,
+    "served_demand_liters": 278268,
+    "allocation_failures": 0,
+    "allocations": 176,
+    "liters_shipped": 200400,
+    "stockout_hours": 76.5,
+    "wall_seconds": 76.1
+   },
+   {
+    "policy": "planner",
+    "service_level": 1.0,
+    "unmet_demand_liters": 0,
+    "served_demand_liters": 287495,
+    "allocation_failures": 0,
+    "allocations": 179,
+    "liters_shipped": 229900,
+    "stockout_hours": 0.0,
+    "wall_seconds": 83.5
    }
   ]
  }
