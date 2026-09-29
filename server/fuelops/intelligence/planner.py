@@ -178,7 +178,7 @@ def _signals(state: WorldState, idx: WorldIndex, route, st, fuel: str, before: R
     signals = []
     if before.hours_to_stockout is not None:
         signals.append(f"stockout in {before.hours_to_stockout:.1f} h without action")
-    signals.append(f"P(stockout 12h) {before.p_stockout_12h:.0%}")
+    signals.append(f"P(stockout within {before.horizon_hours:.0f} h) {before.p_stockout:.0%}")
     signals.append(f"forecast demand {demand_h:.0f} L over {cover_h:.0f} h")
     if st.demand_multiplier > 1.05:
         signals.append(f"demand multiplier x{st.demand_multiplier:.2f}")
@@ -300,9 +300,13 @@ def plan(
                     description=f"Ship {alt_qty:.0f} L via {alt.id} (arrives tick {t0 + alt_k})",
                     route_id=alt.id, delta_unmet_liters=round(delta, 1)))
 
-        reason = (f"Ship {qty:.0f} L {f} {r.source_depot_id} -> {st.id}, arriving tick {t0 + k_arr}: "
-                  f"projected unmet over {cover_h:.0f} h falls from {before.projected_unmet_liters:.0f} L "
-                  f"to {after.projected_unmet_liters:.0f} L")
+        if after.projected_unmet_liters < before.projected_unmet_liters - 1:
+            effect = (f"projected unmet over {cover_h:.0f} h falls from {before.projected_unmet_liters:.0f} L "
+                      f"to {after.projected_unmet_liters:.0f} L")
+        else:
+            effect = (f"keeps cover: stock at the end of the {cover_h:.0f} h horizon rises from "
+                      f"{before.end_inventory_liters:.0f} L to {after.end_inventory_liters:.0f} L")
+        reason = f"Ship {qty:.0f} L {f} {r.source_depot_id} -> {st.id}, arriving tick {t0 + k_arr}: {effect}"
         lines.append(PlanLine(
             line_no=n, route_id=r.id, depot_id=r.source_depot_id, station_id=st.id, fuel_type=f, quantity=qty,
             parts=parts, arrival_tick=t0 + k_arr, reason=reason, signals=signals, binding=binding,

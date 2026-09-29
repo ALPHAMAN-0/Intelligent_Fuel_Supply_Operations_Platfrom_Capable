@@ -9,6 +9,13 @@ qa/results
 **/.pytest_cache
 **/.ruff_cache
 **/node_modules
+# frontend/ is served verbatim by the backend: ship only the static console, not its dev tooling
+frontend/tests
+frontend/coverage
+frontend/package*.json
+frontend/*.config.js
 server/data
 **/*.db
-.env
+**/.env
+**/.env.*
+!**/.env.example

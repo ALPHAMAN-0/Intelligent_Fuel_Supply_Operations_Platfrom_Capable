@@ -192,20 +192,35 @@ class Store:
         return await self._arun(fn, [])
 
     async def load_recent(self) -> dict[str, list]:
-        """Restore state after a backend restart (latest run only)."""
+        """Restore state after a backend restart (latest run only).
+
+        Rows that no longer validate (e.g. written by an older schema) are skipped and counted, never fatal.
+        """
+        empty: dict[str, list] = {"plans": [], "decisions": [], "alerts": [], "incidents": [], "run": [],
+                                  "skipped": []}
+
+        def parse(model, rows) -> tuple[list, int]:
+            ok, bad = [], 0
+            for (data,) in rows:
+                try:
+                    ok.append(model.model_validate_json(data))
+                except ValueError:
+                    bad += 1
+            return ok, bad
+
         def fn(c: sqlite3.Connection) -> dict[str, list]:
             row = c.execute("SELECT max(id) FROM sim_runs").fetchone()
             run = row[0] if row else None
             if run is None:
-                return {"plans": [], "decisions": [], "alerts": [], "incidents": [], "run": []}
-            plans = [PlanRecord.model_validate_json(r[0]) for r in
-                     c.execute("SELECT data FROM plans WHERE run_id=? ORDER BY id DESC LIMIT 200", (run,))]
-            decisions = [Decision.model_validate_json(r[0]) for r in
-                         c.execute("SELECT data FROM decisions WHERE run_id=? ORDER BY id DESC LIMIT 1000", (run,))]
-            alerts = [Alert.model_validate_json(r[0]) for r in
-                      c.execute("SELECT data FROM alerts WHERE run_id=? ORDER BY updated_at DESC LIMIT 500", (run,))]
-            incidents = [Incident.model_validate_json(r[0]) for r in
-                         c.execute("SELECT data FROM incidents WHERE run_id=? ORDER BY updated_at DESC LIMIT 200",
-                                   (run,))]
-            return {"plans": plans, "decisions": decisions, "alerts": alerts, "incidents": incidents, "run": [run]}
-        return await self._arun(fn, {"plans": [], "decisions": [], "alerts": [], "incidents": [], "run": []})
+                return empty
+            plans, b1 = parse(PlanRecord, c.execute(
+                "SELECT data FROM plans WHERE run_id=? ORDER BY id DESC LIMIT 200", (run,)))
+            decisions, b2 = parse(Decision, c.execute(
+                "SELECT data FROM decisions WHERE run_id=? ORDER BY id DESC LIMIT 1000", (run,)))
+            alerts, b3 = parse(Alert, c.execute(
+                "SELECT data FROM alerts WHERE run_id=? ORDER BY updated_at DESC LIMIT 500", (run,)))
+            incidents, b4 = parse(Incident, c.execute(
+                "SELECT data FROM incidents WHERE run_id=? ORDER BY updated_at DESC LIMIT 200", (run,)))
+            return {"plans": plans, "decisions": decisions, "alerts": alerts, "incidents": incidents, "run": [run],
+                    "skipped": [b1 + b2 + b3 + b4]}
+        return await self._arun(fn, empty)

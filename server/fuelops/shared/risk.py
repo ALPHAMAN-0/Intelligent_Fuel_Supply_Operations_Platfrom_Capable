@@ -112,16 +112,17 @@ def score_risks(
 
 
 def risk_snapshot(state: WorldState, st, fuel: str, fc: Forecasts, arr: dict[int, float], horizon: int) -> RiskSnapshot:
+    """Risk of one series over the planning horizon, given relative arrivals `arr`."""
     mu, sigma = fc[(st.id, fuel)]
     t0 = state.instance.tick
     on_hand, cap = st.inventory.get(fuel, 0.0), st.capacity.get(fuel, 0.0)
     open_at = [station_open_at(state, st, t0 + k) for k in range(1, len(mu) + 1)]
     _, _, first = project_series(on_hand, cap, mu, arr, open_at)
-    _, unmet_h, _ = project_series(on_hand, cap, mu[:horizon], arr, open_at[:horizon])
-    p12 = 1.0 if st.status != "OPEN" else p_stockout(on_hand, mu, sigma, arr, hours_to_ticks(state, 12))
-    return RiskSnapshot(p_stockout_12h=round(p12, 4),
+    inv_h, unmet_h, _ = project_series(on_hand, cap, mu[:horizon], arr, open_at[:horizon])
+    p = 1.0 if st.status != "OPEN" else p_stockout(on_hand, mu, sigma, arr, horizon)
+    return RiskSnapshot(p_stockout=round(p, 4), horizon_hours=round(ticks_to_hours(state, horizon), 2),
                         hours_to_stockout=round(ticks_to_hours(state, first), 2) if first else None,
-                        projected_unmet_liters=round(unmet_h, 1))
+                        projected_unmet_liters=round(unmet_h, 1), end_inventory_liters=round(inv_h[-1], 1))
 
 
 def series_unmet(state: WorldState, fc: Forecasts, extra: dict[tuple[str, str], dict[int, float]], horizon: int) -> float:

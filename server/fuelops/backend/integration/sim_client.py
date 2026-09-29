@@ -151,12 +151,12 @@ class SimClient:
                 if breaker is not None:
                     breaker.record_success()  # the API answered; a business-rule rejection is not an outage
                 raise err
-            if breaker is not None:
-                breaker.record_failure()
             if attempt < attempts:
                 delay = random.uniform(0, min(self._backoff_cap, self._backoff_base * 2 ** (attempt - 1)))
                 await self._sleep(delay)
         assert err is not None
+        if breaker is not None:
+            breaker.record_failure()  # one failure per call that exhausted its retries, not per attempt
         raise err
 
     async def _invalid(self, endpoint: str, message: str) -> SimError:

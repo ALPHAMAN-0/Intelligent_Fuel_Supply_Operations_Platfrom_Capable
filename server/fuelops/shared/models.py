@@ -113,9 +113,11 @@ class SupplyEta(BaseModel):
 
 
 class RiskSnapshot(BaseModel):
-    p_stockout_12h: float
+    p_stockout: float  # P(stockout within the planning horizon)
+    horizon_hours: float
     hours_to_stockout: float | None
     projected_unmet_liters: float
+    end_inventory_liters: float  # mean projected stock at the end of the planning horizon
 
 
 class Alternative(BaseModel):

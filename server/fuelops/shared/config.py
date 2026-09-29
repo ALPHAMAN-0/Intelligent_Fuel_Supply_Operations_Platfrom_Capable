@@ -42,7 +42,7 @@ class Settings(BaseModel):
     plan_horizon_ticks: int = Field(default=24, ge=4, le=96)
     plan_safety_z: float = Field(default=1.0, ge=0.0, le=3.0)
     plan_ttl_ticks: int = Field(default=2, ge=1)
-    min_shipment_l: float = Field(default=500.0, ge=0.0)
+    min_shipment_l: float = Field(default=1000.0, ge=0.0)
     auto_approve_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
     auto_approve_max_liters: float = Field(default=7000.0, ge=0.0)
     history_window_ticks: int = Field(default=672, ge=96)
@@ -51,7 +51,9 @@ class Settings(BaseModel):
     anthropic_api_key: SecretStr | None = None
     anthropic_base_url: str = "https://api.anthropic.com"
     llm_model: str = "claude-opus-5-5"
-    llm_timeout_s: float = 8.0
+    llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
+    llm_max_tokens: int = Field(default=4096, ge=256)
+    llm_timeout_s: float = 30.0
     llm_auto_explain: Literal["off", "review", "all"] = "review"
 
     # Operator access

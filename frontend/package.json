@@ -1,0 +1,20 @@
+{
+  "name": "fuelops-console",
+  "private": true,
+  "description": "Static operator console served by the FuelOps backend. npm is dev-only (tests + lint); nothing here is built.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^5.0.2",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "jsdom": "^30.1.1",
+    "vitest": "^5.0.2"
+  }
+}

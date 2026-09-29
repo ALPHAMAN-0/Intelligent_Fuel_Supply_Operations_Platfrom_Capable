@@ -127,19 +127,25 @@ def detect_supply(state: WorldState, first_seen: dict[str, tuple[int, float]]) -
 
 def detect_shortages(state: WorldState, risks: list[RiskScore]) -> list[Candidate]:
     idx = WorldIndex(state)
+    tm = state.instance.tick_minutes
     out = []
     for r in risks:
         tts = r.hours_to_stockout
-        p4, p12 = r.p_stockout.get("4h", 0.0), r.p_stockout.get("12h", 0.0)
+        p4 = r.p_stockout.get("4h", 0.0)
         if r.station_status != STATION_OPEN:
             continue  # covered by the network detector
-        if p4 >= 0.5 or (tts is not None and tts <= 2):
+        st = idx.stations.get(r.station_id)
+        # Lead time of the fastest usable route: a stockout sooner than that cannot be prevented by a new order.
+        leads = [(rt.transit_ticks + 1) * tm / 60 for rt in idx.routes_to.get(r.station_id, [])
+                 if rt.status == "AVAILABLE"]
+        lead_h = min(leads) if leads else None
+        unpreventable = tts is not None and (lead_h is None or tts <= lead_h)
+        if unpreventable or p4 >= 0.8:
             severity = "critical"
-        elif p12 >= 0.5 or (tts is not None and tts <= 6):
+        elif (tts is not None and tts <= (lead_h or 1.0) + 2) or p4 >= 0.4:
             severity = "warning"
         else:
             continue
-        st = idx.stations.get(r.station_id)
         inc = None
         if st is not None:
             for ev in sorted(state.events, key=lambda e: -e.id):
@@ -147,11 +153,12 @@ def detect_shortages(state: WorldState, risks: list[RiskScore]) -> list[Candidat
                     inc = f"event:{ev.id}"
                     break
         when = f"stockout in {tts:.1f} h" if tts is not None else "stockout risk"
-        title = f"Shortage risk {r.station_id} {r.fuel_type}: {when}, P(12h) {p12:.0%}"
+        title = f"Shortage risk {r.station_id} {r.fuel_type}: {when}, P(4h) {p4:.0%}"
         out.append(Candidate(key=f"shortage:{r.station_id}:{r.fuel_type}", kind="shortage", severity=severity,
                              title=title, entity_type="station", entity_id=r.station_id,
                              detail={"fuel": r.fuel_type, "hours_to_stockout": tts, "p_stockout": r.p_stockout,
-                                     "on_hand": r.on_hand, "in_transit": r.in_transit, "notes": r.notes},
+                                     "lead_time_hours": lead_h, "on_hand": r.on_hand, "in_transit": r.in_transit,
+                                     "notes": r.notes},
                              incident_key=inc or f"shortage:{r.station_id}",
                              incident_title=f"Shortage risk at {r.station_id}"))
     return out
