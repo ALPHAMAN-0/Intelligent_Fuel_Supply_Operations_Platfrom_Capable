@@ -188,19 +188,26 @@ def drill_database_down() -> Drill:
 
 def drill_backend_restart() -> Drill:
     d = Drill("Backend restart", "`docker compose restart backend`",
-              "plans and decision history restored from SQLite; decisions resume")
-    _, plans_before = call("GET", "/api/plans?limit=300")
-    _, decisions_before = call("GET", "/api/decisions?limit=2000")
+              "the current run's plans and decision history are restored from SQLite; decisions resume")
+    run = state()["world"]["run_id"]
+    _, plans = call("GET", "/api/plans?limit=300")
+    _, decisions = call("GET", "/api/decisions?limit=2000")
+    # The store restores the current run's latest 200 plans and 1000 decisions (store.load_recent).
+    plan_ids = sorted(p["id"] for p in plans or [] if p["run_id"] == run)[-200:]
+    decision_ids = sorted(x["id"] for x in decisions or [] if x["run_id"] == run)[-1000:]
+    cycles_before = state()["decision"]["cycles"]
     compose("restart", "backend")
     t = wait_for(lambda: state() is not None, 120)
     d.check("back and synced", t is not None, f"after {t} s")
     _, plans_after = call("GET", "/api/plans?limit=300")
     _, decisions_after = call("GET", "/api/decisions?limit=2000")
-    old_ids = {p["id"] for p in plans_before or []}
-    kept = old_ids & {p["id"] for p in plans_after or []}
-    d.check("plans restored", len(kept) >= min(len(old_ids), 200), f"{len(kept)} of {len(old_ids)} plans")
-    d.check("decision history restored", len(decisions_after or []) >= len(decisions_before or []),
-            f"{len(decisions_after or [])} decisions (was {len(decisions_before or [])})")
+    kept_plans = set(plan_ids) & {p["id"] for p in plans_after or []}
+    kept_decisions = set(decision_ids) & {x["id"] for x in decisions_after or []}
+    d.check("plans restored", len(kept_plans) == len(plan_ids), f"{len(kept_plans)} of {len(plan_ids)} (run {run})")
+    d.check("decision history restored", len(kept_decisions) == len(decision_ids),
+            f"{len(kept_decisions)} of {len(decision_ids)} (run {run})")
+    d.check("decision loop resumed", wait_for(lambda: state()["decision"]["cycles"] > 0, 30) is not None,
+            f"{state()['decision']['cycles']} cycles since restart (was {cycles_before} before)")
     return d
 
 
