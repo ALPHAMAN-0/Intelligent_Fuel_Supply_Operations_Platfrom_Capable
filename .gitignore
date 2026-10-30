@@ -27,4 +27,3 @@ Thumbs.db
 
 # Local Claude Code settings (keep shared skills committed)
 .claude/settings.local.json
-config.bat
